@@ -1,0 +1,10 @@
+/.bundle/
+/.gem-test/
+/*.gem
+/Makefile
+/mkmf.log
+/ext/page_print/Makefile
+/ext/page_print/mkmf.log
+/ext/page_print/*.bundle
+/ext/page_print/*.o
+/.ruby-lsp/

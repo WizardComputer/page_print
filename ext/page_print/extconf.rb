@@ -1,14 +1,15 @@
-require "mkmf"
+require 'mkmf'
 
-#pkg_config("plutobook") -> someting is wrong with pluto
+pkg_config('plutobook')
 
-pluto_prefix = "/opt/homebrew/opt/plutobook"
+dir_config('plutobook')
 
-dir_config("plutobook","#{pluto_prefix}/include", "#{pluto_prefix}/lib")
+unless have_header('plutobook/plutobook.h')
+  abort 'plutobook header not found. Install plutobook or pass --with-plutobook-include=/path/to/include'
+end
 
-$INCFLAGS << " -I#{pluto_prefix}/include"
+unless have_library('plutobook', 'plutobook_create')
+  abort 'plutobook library not found. Install plutobook or pass --with-plutobook-lib=/path/to/lib'
+end
 
-abort "header not found" unless have_header("plutobook/plutobook.h")
-abort "lib not found" unless have_library("plutobook", "plutobook_create")
-
-create_makefile("page_print/page_print")
+create_makefile('page_print/page_print')
