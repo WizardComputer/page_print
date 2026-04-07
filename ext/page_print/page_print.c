@@ -1,4 +1,5 @@
 #include "ruby.h"
+#include <plutobook/plutobook.h>
 
 static VALUE mPagePrint;
 
