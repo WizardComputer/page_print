@@ -86,9 +86,9 @@ warnflags = -Wall -Wextra -Wextra-tokens -Wdeprecated-declarations -Wdivision-by
 cppflags = 
 CCDLFLAGS = -fno-common
 CFLAGS   = $(CCDLFLAGS) $(cflags) -fno-common -pipe $(ARCH_FLAG)
-INCFLAGS = -I. -I$(arch_hdrdir) -I$(hdrdir)/ruby/backward -I$(hdrdir) -I$(srcdir)
+INCFLAGS = -I. -I$(arch_hdrdir) -I$(hdrdir)/ruby/backward -I$(hdrdir) -I$(srcdir) -I/opt/homebrew/opt/plutobook/include
 DEFS     = 
-CPPFLAGS =  -D_XOPEN_SOURCE -D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT -D_REENTRANT $(DEFS) $(cppflags)
+CPPFLAGS = -DHAVE_PLUTOBOOK_PLUTOBOOK_H -I/opt/homebrew/opt/plutobook/include -D_XOPEN_SOURCE -D_DARWIN_C_SOURCE -D_DARWIN_UNLIMITED_SELECT -D_REENTRANT $(DEFS) $(cppflags)
 CXXFLAGS = $(CCDLFLAGS) -fdeclspec $(ARCH_FLAG)
 ldflags  = -L. -fstack-protector-strong -L/opt/homebrew/opt/gmp/lib
 dldflags = -L/opt/homebrew/opt/gmp/lib -Wl,-multiply_defined,suppress -Wl,-undefined,dynamic_lookup 
@@ -127,8 +127,8 @@ TOUCH = exit >
 #### End of system configuration section. ####
 
 preload = 
-libpath = . $(libdir)
-LIBPATH =  -L. -L$(libdir)
+libpath = . $(libdir) /opt/homebrew/opt/plutobook/lib
+LIBPATH =  -L. -L$(libdir) -L/opt/homebrew/opt/plutobook/lib
 DEFFILE = 
 
 CLEANFILES = mkmf.log
@@ -139,7 +139,7 @@ extout =
 extout_prefix = 
 target_prefix = /page_print
 LOCAL_LIBS = 
-LIBS = $(LIBRUBYARG_SHARED)  -lpthread  
+LIBS = $(LIBRUBYARG_SHARED) -lplutobook  -lpthread  
 ORIG_SRCS = page_print.c
 SRCS = $(ORIG_SRCS) 
 OBJS = page_print.o
