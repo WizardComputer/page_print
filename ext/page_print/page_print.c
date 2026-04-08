@@ -18,6 +18,14 @@ static VALUE pageprint_html_to_pdf(VALUE self, VALUE html, VALUE path) {
         rb_raise(rb_eTypeError, "path must be a String");
     }
 
+    if (RSTRING_LEN(html) == 0) {
+        rb_raise(rb_eArgError, "html must not be empty");
+    }
+
+    if (RSTRING_LEN(path) == 0) {
+        rb_raise(rb_eArgError, "path must not be empty");
+    }
+
     html_str = StringValueCStr(html);
     path_str = StringValueCStr(path);
 

@@ -1,5 +1,7 @@
 require 'minitest/autorun'
 require 'tmpdir'
+
+$LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'page_print'
 
 class PagePrintTest < Minitest::Test
@@ -21,6 +23,22 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'path must be a String', error.message
+  end
+
+  def test_html_to_pdf_rejects_empty_html
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('', 'output.pdf')
+    end
+
+    assert_equal 'html must not be empty', error.message
+  end
+
+  def test_html_to_pdf_rejects_empty_path
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', '')
+    end
+
+    assert_equal 'path must not be empty', error.message
   end
 
   def test_html_to_pdf_writes_output_file
