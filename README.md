@@ -52,13 +52,23 @@ Then load the gem from the repo and try it:
 
 ```ruby
 require "page_print"
-PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", "output.pdf")
+require "tmpdir"
+
+output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
+
+PagePrint.html_to_pdf(
+  "<html><body><h1>Hello</h1></body></html>",
+  output_path,
+  page_size: :letter,
+  margins: :narrow,
+  media: :screen
+)
 ```
 
 You can also do a quick one-shot smoke test from the shell:
 
 ```sh
-bundle exec ruby -Ilib -e 'require "page_print"; p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", "output.pdf")'
+bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
 ```
 
 Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
@@ -85,6 +95,7 @@ bundle exec rake
 
 ```ruby
 require "page_print"
+require "tmpdir"
 
 html = <<~HTML
   <html>
@@ -95,8 +106,17 @@ html = <<~HTML
   </html>
 HTML
 
-PagePrint.html_to_pdf(html, "output.pdf")
+output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
+
+PagePrint.html_to_pdf(html, output_path, base_url: "https://example.com")
 ```
+
+Supported keyword options:
+
+- `base_url:` string used to resolve relative URLs in the HTML
+- `page_size:` one of `:a3`, `:a4`, `:a5`, `:b4`, `:b5`, `:letter`, `:legal`, `:ledger`
+- `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`
+- `media:` one of `:print`, `:screen`
 
 ## Notes
 

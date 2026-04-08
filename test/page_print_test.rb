@@ -51,6 +51,24 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_html_to_pdf_accepts_keyword_options
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'output.pdf')
+
+      assert PagePrint.html_to_pdf(
+        '<html><body><h1>Hello</h1></body></html>',
+        output_path,
+        base_url: 'https://example.com',
+        page_size: :letter,
+        margins: :narrow,
+        media: :screen
+      )
+
+      assert File.exist?(output_path)
+      assert_operator File.size(output_path), :>, 0
+    end
+  end
+
   def test_html_to_pdf_includes_path_when_pdf_write_fails
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'missing', 'output.pdf')
@@ -61,5 +79,21 @@ class PagePrintTest < Minitest::Test
 
       assert_equal "failed to write PDF to #{output_path}", error.message
     end
+  end
+
+  def test_html_to_pdf_rejects_invalid_page_size
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: :tabloid)
+    end
+
+    assert_equal 'page_size must be one of: :a3, :a4, :a5, :b4, :b5, :letter, :legal, :ledger', error.message
+  end
+
+  def test_html_to_pdf_rejects_unknown_keyword
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', foo: :bar)
+    end
+
+    assert_equal 'unknown keyword: :foo', error.message
   end
 end
