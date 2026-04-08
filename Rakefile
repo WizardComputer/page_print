@@ -9,6 +9,7 @@ Rake::ExtensionTask.new("page_print", spec) do |ext|
 end
 
 Rake::TestTask.new(:test) do |test|
+  test.libs << "lib"
   test.libs << "test"
   test.pattern = "test/**/*_test.rb"
   test.warning = true

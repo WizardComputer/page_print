@@ -10,6 +10,14 @@ static VALUE pageprint_html_to_pdf(VALUE self, VALUE html, VALUE path) {
     plutobook_t *book;
     int ok;
 
+    if (!RB_TYPE_P(html, T_STRING)) {
+        rb_raise(rb_eTypeError, "html must be a String");
+    }
+
+    if (!RB_TYPE_P(path, T_STRING)) {
+        rb_raise(rb_eTypeError, "path must be a String");
+    }
+
     html_str = StringValueCStr(html);
     path_str = StringValueCStr(path);
 
