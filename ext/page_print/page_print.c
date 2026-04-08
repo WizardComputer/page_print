@@ -48,14 +48,14 @@ static VALUE pageprint_html_to_pdf(VALUE self, VALUE html, VALUE path) {
 
     if (!ok) {
         plutobook_destroy(book);
-        rb_raise(rb_eRuntimeError, "failed to load html");
+        rb_raise(rb_eRuntimeError, "failed to load HTML into plutobook");
     }
 
     ok = plutobook_write_to_pdf(book, path_str);
     plutobook_destroy(book);
 
     if (!ok) {
-        rb_raise(rb_eRuntimeError, "failed to write pdf");
+        rb_raise(rb_eRuntimeError, "failed to write PDF to %s", path_str);
     }
 
     return Qtrue;

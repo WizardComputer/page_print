@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require 'tmpdir'
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-require 'page_print'
+require_relative '../lib/page_print'
 
 class PagePrintTest < Minitest::Test
   def test_has_a_version
@@ -48,6 +48,18 @@ class PagePrintTest < Minitest::Test
       assert PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', output_path)
       assert File.exist?(output_path)
       assert_operator File.size(output_path), :>, 0
+    end
+  end
+
+  def test_html_to_pdf_includes_path_when_pdf_write_fails
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'missing', 'output.pdf')
+
+      error = assert_raises(RuntimeError) do
+        PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', output_path)
+      end
+
+      assert_equal "failed to write PDF to #{output_path}", error.message
     end
   end
 end
