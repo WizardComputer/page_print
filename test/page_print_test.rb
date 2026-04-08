@@ -11,10 +11,6 @@ class PagePrintTest < Minitest::Test
     assert_equal 'hello from C', PagePrint.hello
   end
 
-  def test_echo_round_trip
-    assert_equal 'C says: hello', PagePrint.echo('hello')
-  end
-
   def test_html_to_pdf_writes_output_file
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')

@@ -101,4 +101,4 @@ PagePrint.html_to_pdf(html, "output.pdf")
 ## Notes
 
 - The current implementation writes directly to a file path.
-- The extension currently keeps a few small debug helpers (`hello`, `echo`, `join_html_and_path`) alongside `html_to_pdf`.
+- The extension currently exposes a small API while `html_to_pdf` remains the primary feature.
