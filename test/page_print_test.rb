@@ -7,10 +7,6 @@ class PagePrintTest < Minitest::Test
     refute_nil PagePrint::VERSION
   end
 
-  def test_hello_round_trip
-    assert_equal 'hello from C', PagePrint.hello
-  end
-
   def test_html_to_pdf_writes_output_file
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')

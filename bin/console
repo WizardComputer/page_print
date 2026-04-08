@@ -12,8 +12,6 @@ end
 $LOAD_PATH.unshift(File.expand_path("lib", root))
 require "page_print"
 
-puts "PagePrint loaded. Try: PagePrint.hello"
-
 require "irb"
 ARGV.clear
 IRB.start

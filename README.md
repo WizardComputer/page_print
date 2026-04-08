@@ -52,13 +52,13 @@ Then load the gem from the repo and try it:
 
 ```ruby
 require "page_print"
-PagePrint.hello
+PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", "output.pdf")
 ```
 
 You can also do a quick one-shot smoke test from the shell:
 
 ```sh
-bundle exec ruby -Ilib -e 'require "page_print"; puts PagePrint.hello'
+bundle exec ruby -Ilib -e 'require "page_print"; p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", "output.pdf")'
 ```
 
 Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
