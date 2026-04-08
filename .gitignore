@@ -1,5 +1,6 @@
 /.bundle/
 /.gem-test/
+/.tmp/
 /*.gem
 /Makefile
 /mkmf.log
@@ -7,4 +8,8 @@
 /ext/page_print/mkmf.log
 /ext/page_print/*.bundle
 /ext/page_print/*.o
+/lib/page_print/*.bundle
+/lib/page_print/*.so
+/pkg/
+/tmp/
 /.ruby-lsp/

@@ -28,6 +28,53 @@ gem build page_print.gemspec
 gem install ./page_print-0.1.0.gem
 ```
 
+## Development
+
+1. Install development dependencies:
+
+```sh
+bundle install
+```
+
+2. Compile the native extension into `lib/page_print`:
+
+```sh
+bundle exec rake compile
+```
+
+3. Open an interactive Ruby session against the local checkout:
+
+```sh
+bundle exec irb -Ilib
+```
+
+Then load the gem from the repo and try it:
+
+```ruby
+require "page_print"
+PagePrint.hello
+```
+
+You can also do a quick one-shot smoke test from the shell:
+
+```sh
+bundle exec ruby -Ilib -e 'require "page_print"; puts PagePrint.hello'
+```
+
+## Running Tests
+
+Run the test suite only:
+
+```sh
+bundle exec rake test
+```
+
+Or run the default rake task, which compiles the extension and then runs tests:
+
+```sh
+bundle exec rake
+```
+
 ## Usage
 
 ```ruby
