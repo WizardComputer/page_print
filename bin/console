@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+
+root = File.expand_path("..", __dir__)
+
+Dir.chdir(root) do
+  system("bundle", "exec", "rake", "compile") or abort("Failed to compile native extension")
+end
+
+$LOAD_PATH.unshift(File.expand_path("lib", root))
+require "page_print"
+
+puts "PagePrint loaded. Try: PagePrint.hello"
+
+require "irb"
+ARGV.clear
+IRB.start

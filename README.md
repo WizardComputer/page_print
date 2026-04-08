@@ -61,6 +61,12 @@ You can also do a quick one-shot smoke test from the shell:
 bundle exec ruby -Ilib -e 'require "page_print"; puts PagePrint.hello'
 ```
 
+Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
+
+```sh
+bin/console
+```
+
 ## Running Tests
 
 Run the test suite only:
