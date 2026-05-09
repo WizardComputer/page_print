@@ -1,11 +1,40 @@
 #include "ruby.h"
+#include <limits.h>
 #include <plutobook/plutobook.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#define PAGEPRINT_NORETURN __attribute__((noreturn))
+#else
+#define PAGEPRINT_NORETURN
+#endif
 
 static VALUE mPagePrint;
 static ID id_base_url;
 static ID id_page_size;
 static ID id_margins;
 static ID id_media;
+
+static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error(VALUE error_class, const char *message)
+{
+    const char *error_message = plutobook_get_error_message();
+
+    if (error_message && error_message[0] != '\0') {
+        rb_raise(error_class, "%s: %s", message, error_message);
+    }
+
+    rb_raise(error_class, "%s", message);
+}
+
+static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error_with_path(VALUE error_class, const char *message, const char *path)
+{
+    const char *error_message = plutobook_get_error_message();
+
+    if (error_message && error_message[0] != '\0') {
+        rb_raise(error_class, "%s %s: %s", message, path, error_message);
+    }
+
+    rb_raise(error_class, "%s %s", message, path);
+}
 
 static plutobook_page_size_t pageprint_page_size_from_value(VALUE value)
 {
@@ -78,6 +107,7 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     const char *html_str;
     const char *path_str;
     const char *base_url_str;
+    long html_len;
 
     plutobook_t *book;
     int ok;
@@ -105,6 +135,10 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
 
     if (RSTRING_LEN(path) == 0) {
         rb_raise(rb_eArgError, "path must not be empty");
+    }
+
+    if (RSTRING_LEN(html) > INT_MAX) {
+        rb_raise(rb_eArgError, "html is too large");
     }
 
     if (NIL_P(options)) {
@@ -147,7 +181,8 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
         media = pageprint_media_from_value(media_value);
     }
 
-    html_str = StringValueCStr(html);
+    html_str = RSTRING_PTR(html);
+    html_len = RSTRING_LEN(html);
     path_str = StringValueCStr(path);
 
     /* 1. Create */
@@ -158,10 +193,12 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     }
 
     /* 2. Load HTML */
+    plutobook_clear_error_message();
+
     ok = plutobook_load_html(
         book,
         html_str,
-        -1,     /* null-terminated */
+        (int)html_len,
         "",     /* user style */
         "",     /* user script */
         base_url_str
@@ -169,14 +206,16 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
 
     if (!ok) {
         plutobook_destroy(book);
-        rb_raise(rb_eRuntimeError, "failed to load HTML into plutobook");
+        pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to load HTML into plutobook");
     }
+
+    plutobook_clear_error_message();
 
     ok = plutobook_write_to_pdf(book, path_str);
     plutobook_destroy(book);
 
     if (!ok) {
-        rb_raise(rb_eRuntimeError, "failed to write PDF to %s", path_str);
+        pageprint_raise_plutobook_error_with_path(rb_eRuntimeError, "failed to write PDF to", path_str);
     }
 
     return Qtrue;
