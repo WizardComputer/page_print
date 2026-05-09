@@ -111,6 +111,12 @@ output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
 PagePrint.html_to_pdf(html, output_path, base_url: "https://example.com")
 ```
 
+To get the generated PDF as a binary string instead of writing directly to a file:
+
+```ruby
+pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
+```
+
 Supported keyword options:
 
 - `base_url:` string used to resolve relative URLs in the HTML
@@ -120,5 +126,5 @@ Supported keyword options:
 
 ## Notes
 
-- The current implementation writes directly to a file path.
-- The extension currently exposes a small API while `html_to_pdf` remains the primary feature.
+- The extension supports writing to a file path with `html_to_pdf` or returning PDF bytes with `html_to_pdf_string`.
+- JavaScript execution is intentionally unsupported.

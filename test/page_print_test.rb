@@ -69,6 +69,68 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_html_to_pdf_string_returns_pdf_bytes
+    pdf = PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>')
+
+    assert_instance_of String, pdf
+    assert_equal Encoding::ASCII_8BIT, pdf.encoding
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_accepts_keyword_options
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><body><h1>Hello</h1></body></html>',
+      base_url: 'https://example.com',
+      page_size: :letter,
+      margins: :narrow,
+      media: :screen
+    )
+
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_requires_html_to_be_a_string
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string(123)
+    end
+
+    assert_equal 'html must be a String', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_empty_html
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string('')
+    end
+
+    assert_equal 'html must not be empty', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_invalid_options
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', :options)
+    end
+
+    assert_equal 'options must be a Hash', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_unknown_keyword
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', foo: :bar)
+    end
+
+    assert_equal 'unknown keyword: :foo', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_invalid_media
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', media: :speech)
+    end
+
+    assert_equal 'media must be one of: :print, :screen', error.message
+  end
+
   def test_html_to_pdf_includes_path_when_pdf_write_fails
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'missing', 'output.pdf')
