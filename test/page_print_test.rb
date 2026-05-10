@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require 'fileutils'
+require 'open3'
 require 'tmpdir'
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
@@ -225,6 +226,35 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_html_to_pdf_accepts_metadata
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'output.pdf')
+
+      assert PagePrint.html_to_pdf(
+        '<html><body><h1>Hello</h1></body></html>',
+        output_path,
+        metadata: {
+          title: 'Test PDF',
+          author: 'PagePrint',
+          subject: 'Metadata test',
+          keywords: 'pdf,test',
+          creator: 'PagePrint test suite',
+          creation_date: '2026-05-10T12:00:00Z',
+          modification_date: nil
+        }
+      )
+
+      assert File.exist?(output_path)
+      assert_operator File.size(output_path), :>, 0
+
+      info = pdfinfo(output_path)
+      assert_includes info, 'Title:           Test PDF'
+      assert_includes info, 'Subject:         Metadata test'
+      assert_includes info, 'Keywords:        pdf,test'
+      assert_includes info, 'Author:          PagePrint'
+    end
+  end
+
   def test_html_to_pdf_string_returns_pdf_bytes
     pdf = PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>')
 
@@ -245,6 +275,66 @@ class PagePrintTest < Minitest::Test
 
     assert_operator pdf.bytesize, :>, 0
     assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_accepts_metadata
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><body><h1>Hello</h1></body></html>',
+      metadata: {
+        title: 'Test PDF',
+        author: 'PagePrint',
+        subject: 'Metadata test',
+        keywords: 'pdf,test',
+        creator: 'PagePrint test suite',
+        creation_date: '2026-05-10T12:00:00Z',
+        modification_date: '2026-05-10T12:01:00Z'
+      }
+    )
+
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_accepts_nil_metadata
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><body><h1>Hello</h1></body></html>',
+      metadata: nil
+    )
+
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_requires_metadata_to_be_a_hash_or_nil
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: 'title')
+    end
+
+    assert_equal 'metadata must be a Hash or nil', error.message
+  end
+
+  def test_html_to_pdf_string_requires_metadata_keys_to_be_symbols
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { 'title' => 'Test PDF' })
+    end
+
+    assert_equal 'metadata keys must be Symbols', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_unknown_metadata_keys
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { publisher: 'PagePrint' })
+    end
+
+    assert_equal 'metadata contains unknown key: :publisher', error.message
+  end
+
+  def test_html_to_pdf_string_requires_metadata_values_to_be_strings_or_nil
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { title: 123 })
+    end
+
+    assert_equal 'metadata values must be Strings or nil', error.message
   end
 
   def test_html_to_pdf_string_uses_resource_fetcher
@@ -470,9 +560,18 @@ class PagePrintTest < Minitest::Test
   end
 
   private
+    def fake_rails(public_path)
+      Struct.new(:public_path).new(public_path)
+    end
 
-  def fake_rails(public_path)
-    Struct.new(:public_path).new(public_path)
-  end
+    def pdfinfo(path)
+      output, status = Open3.capture2('pdfinfo', path)
+
+      return output if status.success?
+
+      skip 'pdfinfo is unavailable'
+    rescue Errno::ENOENT
+      skip 'pdfinfo is unavailable'
+    end
 
 end

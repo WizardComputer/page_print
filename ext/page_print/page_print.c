@@ -17,12 +17,20 @@ static ID id_page_size;
 static ID id_margins;
 static ID id_media;
 static ID id_resource_fetcher;
+static ID id_metadata;
 static ID id_resource_fetcher_ivar;
 static ID id_base_url_method;
 static ID id_call;
 static ID id_content;
 static ID id_mime_type;
 static ID id_text_encoding;
+static ID id_title;
+static ID id_author;
+static ID id_subject;
+static ID id_keywords;
+static ID id_creator;
+static ID id_creation_date;
+static ID id_modification_date;
 
 typedef struct {
     plutobook_page_size_t page_size;
@@ -30,6 +38,7 @@ typedef struct {
     plutobook_media_type_t media;
     const char *base_url;
     VALUE resource_fetcher;
+    VALUE metadata;
 } pageprint_options_t;
 
 typedef struct {
@@ -157,6 +166,89 @@ static plutobook_media_type_t pageprint_media_from_value(VALUE value)
     if (value_id == rb_intern("screen")) return PLUTOBOOK_MEDIA_TYPE_SCREEN;
 
     rb_raise(rb_eArgError, "media must be one of: :print, :screen");
+}
+
+static int pageprint_metadata_id_known(ID key_id)
+{
+    return key_id == id_title ||
+           key_id == id_author ||
+           key_id == id_subject ||
+           key_id == id_keywords ||
+           key_id == id_creator ||
+           key_id == id_creation_date ||
+           key_id == id_modification_date;
+}
+
+static void pageprint_validate_metadata_key(VALUE key)
+{
+    ID key_id;
+
+    if (!RB_SYMBOL_P(key)) {
+        rb_raise(rb_eTypeError, "metadata keys must be Symbols");
+    }
+
+    key_id = SYM2ID(key);
+
+    if (!pageprint_metadata_id_known(key_id)) {
+        rb_raise(rb_eArgError, "metadata contains unknown key: :%s", rb_id2name(key_id));
+    }
+}
+
+static void pageprint_validate_metadata(VALUE metadata)
+{
+    VALUE keys;
+    long i;
+
+    if (NIL_P(metadata)) {
+        return;
+    }
+
+    if (!RB_TYPE_P(metadata, T_HASH)) {
+        rb_raise(rb_eTypeError, "metadata must be a Hash or nil");
+    }
+
+    keys = rb_funcall(metadata, rb_intern("keys"), 0);
+
+    for (i = 0; i < RARRAY_LEN(keys); i++) {
+        VALUE key = rb_ary_entry(keys, i);
+        VALUE value;
+
+        pageprint_validate_metadata_key(key);
+
+        value = rb_hash_aref(metadata, key);
+
+        if (!NIL_P(value) && !RB_TYPE_P(value, T_STRING)) {
+            rb_raise(rb_eTypeError, "metadata values must be Strings or nil");
+        }
+    }
+}
+
+static void pageprint_set_metadata_value(plutobook_t *book, VALUE metadata, ID key_id, plutobook_pdf_metadata_t metadata_key)
+{
+    VALUE value;
+
+    value = rb_hash_aref(metadata, ID2SYM(key_id));
+
+    if (NIL_P(value)) {
+        return;
+    }
+
+    plutobook_set_metadata(book, metadata_key, StringValueCStr(value));
+}
+
+static void pageprint_apply_metadata(plutobook_t *book, VALUE metadata)
+{
+    if (NIL_P(metadata)) {
+        return;
+    }
+
+    pageprint_set_metadata_value(book, metadata, id_title, PLUTOBOOK_PDF_METADATA_TITLE);
+    pageprint_set_metadata_value(book, metadata, id_author, PLUTOBOOK_PDF_METADATA_AUTHOR);
+    pageprint_set_metadata_value(book, metadata, id_subject, PLUTOBOOK_PDF_METADATA_SUBJECT);
+    pageprint_set_metadata_value(book, metadata, id_keywords, PLUTOBOOK_PDF_METADATA_KEYWORDS);
+    pageprint_set_metadata_value(book, metadata, id_creator, PLUTOBOOK_PDF_METADATA_CREATOR);
+    pageprint_set_metadata_value(book, metadata, id_creation_date, PLUTOBOOK_PDF_METADATA_CREATION_DATE);
+    pageprint_set_metadata_value(book, metadata, id_modification_date, PLUTOBOOK_PDF_METADATA_MODIFICATION_DATE);
 }
 
 static void *pageprint_load_html_without_gvl(void *ptr)
@@ -305,14 +397,16 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
     VALUE margins_value;
     VALUE media_value;
     VALUE resource_fetcher_value;
-    VALUE keyword_values[5];
-    ID keyword_ids[5];
+    VALUE metadata_value;
+    VALUE keyword_values[6];
+    ID keyword_ids[6];
 
     result.page_size = PLUTOBOOK_PAGE_SIZE_A4;
     result.margins = PLUTOBOOK_PAGE_MARGINS_NORMAL;
     result.media = PLUTOBOOK_MEDIA_TYPE_PRINT;
     result.base_url = "";
     result.resource_fetcher = Qnil;
+    result.metadata = Qnil;
 
     if (NIL_P(options)) {
         options = rb_hash_new();
@@ -325,14 +419,16 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
     keyword_ids[2] = id_margins;
     keyword_ids[3] = id_media;
     keyword_ids[4] = id_resource_fetcher;
+    keyword_ids[5] = id_metadata;
 
-    rb_get_kwargs(options, keyword_ids, 0, 5, keyword_values);
+    rb_get_kwargs(options, keyword_ids, 0, 6, keyword_values);
 
     base_url_value = keyword_values[0];
     page_size_value = keyword_values[1];
     margins_value = keyword_values[2];
     media_value = keyword_values[3];
     resource_fetcher_value = keyword_values[4];
+    metadata_value = keyword_values[5];
 
     if (base_url_value == Qundef) {
         base_url_value = rb_funcall(mPagePrint, id_base_url_method, 0);
@@ -368,6 +464,11 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
         }
 
         result.resource_fetcher = resource_fetcher_value;
+    }
+
+    if (metadata_value != Qundef) {
+        pageprint_validate_metadata(metadata_value);
+        result.metadata = metadata_value;
     }
 
     return result;
@@ -446,6 +547,8 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
         plutobook_destroy(book);
         rb_jump_tag(resource_fetcher->state);
     }
+
+    pageprint_apply_metadata(book, pageprint_options.metadata);
 
     return book;
 }
@@ -596,12 +699,20 @@ void Init_page_print(void) {
     id_margins = rb_intern_const("margins");
     id_media = rb_intern_const("media");
     id_resource_fetcher = rb_intern_const("resource_fetcher");
+    id_metadata = rb_intern_const("metadata");
     id_resource_fetcher_ivar = rb_intern_const("@resource_fetcher");
     id_base_url_method = rb_intern_const("base_url");
     id_call = rb_intern_const("call");
     id_content = rb_intern_const("content");
     id_mime_type = rb_intern_const("mime_type");
     id_text_encoding = rb_intern_const("text_encoding");
+    id_title = rb_intern_const("title");
+    id_author = rb_intern_const("author");
+    id_subject = rb_intern_const("subject");
+    id_keywords = rb_intern_const("keywords");
+    id_creator = rb_intern_const("creator");
+    id_creation_date = rb_intern_const("creation_date");
+    id_modification_date = rb_intern_const("modification_date");
 
     rb_define_singleton_method(mPagePrint, "html_to_pdf", RUBY_METHOD_FUNC(pageprint_html_to_pdf), -1);
     rb_define_singleton_method(mPagePrint, "html_to_pdf_string", RUBY_METHOD_FUNC(pageprint_html_to_pdf_string), -1);

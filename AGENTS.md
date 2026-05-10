@@ -60,6 +60,8 @@ Use `bin/console` for a local development console. It compiles the extension bef
 
 - Keep the Ruby-facing API minimal and documented in `README.md`.
 - When changing `PagePrint.html_to_pdf`, update tests for both successful output and validation/error behavior.
+- Prefer inline Ruby calls for readability; only break Ruby argument lists across lines when the line would exceed 120 characters.
+- Format Ruby private sections with `private` at the class indentation level and private method definitions indented beneath it, without a blank line between `private` and the first private method.
 - Validate Ruby argument types before passing data into `plutobook`.
 - Ensure native resources are destroyed on failure paths before raising Ruby exceptions.
 - Prefer clear Ruby exception messages because tests assert exact messages.
