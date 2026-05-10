@@ -117,12 +117,42 @@ To get the generated PDF as a binary string instead of writing directly to a fil
 pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
 ```
 
+You can configure default options once, for example to provide a resource fetcher used by all renders:
+
+```ruby
+PagePrint.configure do |config|
+  config.resource_fetcher = lambda do |url|
+    next unless url == "asset:pdf.css"
+
+    { content: "body { font-family: sans-serif; }", mime_type: "text/css" }
+  end
+end
+```
+
+In Rails, configure the built-in fetcher once to resolve `/assets/...` URLs without making HTTP requests back to the app:
+
+```ruby
+# config/initializers/page_print.rb
+PagePrint.configure do |config|
+  config.resource_fetcher = PagePrint::RailsResourceFetcher.new
+end
+```
+
+Then render PDFs with normal Rails asset paths:
+
+```ruby
+html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
+pdf = PagePrint.html_to_pdf_string(html, base_url: request.base_url)
+send_data pdf, filename: "print.pdf", type: "application/pdf", disposition: "inline"
+```
+
 Supported keyword options:
 
 - `base_url:` string used to resolve relative URLs in the HTML
 - `page_size:` one of `:a3`, `:a4`, `:a5`, `:b4`, `:b5`, `:letter`, `:legal`, `:ledger`
 - `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`
 - `media:` one of `:print`, `:screen`
+- `resource_fetcher:` callable that receives a URL and returns `nil` or `{ content:, mime_type:, text_encoding: nil }`
 
 ## Notes
 

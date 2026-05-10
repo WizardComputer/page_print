@@ -1,12 +1,102 @@
 require 'minitest/autorun'
+require 'fileutils'
 require 'tmpdir'
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require_relative '../lib/page_print'
 
 class PagePrintTest < Minitest::Test
+  def teardown
+    PagePrint.resource_fetcher = nil
+  end
+
   def test_has_a_version
     refute_nil PagePrint::VERSION
+  end
+
+  def test_configure_sets_default_resource_fetcher
+    fetcher = proc { nil }
+
+    PagePrint.configure do |config|
+      config.resource_fetcher = fetcher
+    end
+
+    assert_same fetcher, PagePrint.resource_fetcher
+  end
+
+  def test_rails_resource_fetcher_reads_public_assets
+    Dir.mktmpdir do |dir|
+      public_dir = File.join(dir, 'public')
+      assets_dir = File.join(public_dir, 'assets')
+      FileUtils.mkdir_p(assets_dir)
+      File.binwrite(File.join(assets_dir, 'pdf.css'), 'body { color: red; }')
+
+      fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(public_dir))
+
+      assert_equal(
+        { content: 'body { color: red; }', mime_type: 'text/css' },
+        fetcher.call('http://example.com/assets/pdf.css')
+      )
+    end
+  end
+
+  def test_rails_resource_fetcher_ignores_non_asset_urls
+    fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(Dir.tmpdir))
+
+    assert_nil fetcher.call('http://example.com/images/logo.png')
+  end
+
+  def test_rails_resource_fetcher_uses_propshaft_load_path_for_digested_assets
+    asset = Struct.new(:logical_path).new('pdf.css')
+    load_path = Class.new do
+      def initialize(asset)
+        @asset = asset
+      end
+
+      def find(path)
+        @asset if path == 'pdf-abc123.css'
+      end
+    end.new(asset)
+
+    resolver = Class.new do
+      attr_reader :load_path
+
+      def initialize(load_path)
+        @load_path = load_path
+      end
+
+      def read(path)
+        return 'body { color: blue; }' if path == 'pdf.css'
+      end
+    end.new(load_path)
+
+    assets = Struct.new(:resolver).new(resolver)
+    app = Struct.new(:assets).new(assets)
+    rails = Struct.new(:public_path, :application).new(Dir.tmpdir, app)
+    fetcher = PagePrint::RailsResourceFetcher.new(rails: rails)
+
+    assert_equal(
+      { content: 'body { color: blue; }', mime_type: 'text/css' },
+      fetcher.call('http://example.com/assets/pdf-abc123.css')
+    )
+  end
+
+  def test_configured_rails_resource_fetcher_works_with_pdf_rendering
+    Dir.mktmpdir do |dir|
+      public_dir = File.join(dir, 'public')
+      assets_dir = File.join(public_dir, 'assets')
+      FileUtils.mkdir_p(assets_dir)
+      File.binwrite(File.join(assets_dir, 'pdf.css'), 'body { color: green; }')
+
+      PagePrint.resource_fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(public_dir))
+      pdf = PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
+        base_url: 'http://example.com'
+      )
+
+      assert_operator pdf.bytesize, :>, 0
+      assert_equal '%PDF', pdf.byteslice(0, 4)
+    end
   end
 
   def test_html_to_pdf_requires_html_to_be_a_string
@@ -89,6 +179,89 @@ class PagePrintTest < Minitest::Test
 
     assert_operator pdf.bytesize, :>, 0
     assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_uses_resource_fetcher
+    urls = []
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
+      resource_fetcher: lambda { |url|
+        urls << url
+        { content: 'body { color: red; }', mime_type: 'text/css', text_encoding: 'utf-8' }
+      }
+    )
+
+    assert_includes urls, 'custom:style'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_uses_configured_resource_fetcher
+    urls = []
+    PagePrint.resource_fetcher = lambda { |url|
+      urls << url
+      { content: 'body { color: blue; }', mime_type: 'text/css' }
+    }
+
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>'
+    )
+
+    assert_includes urls, 'custom:style'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_requires_resource_fetcher_to_respond_to_call
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', resource_fetcher: Object.new)
+    end
+
+    assert_equal 'resource_fetcher must respond to call or be nil/false', error.message
+  end
+
+  def test_html_to_pdf_string_requires_resource_fetcher_result_to_be_a_hash_or_nil
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
+        resource_fetcher: ->(_url) { [] }
+      )
+    end
+
+    assert_equal 'resource_fetcher must return a Hash or nil', error.message
+  end
+
+  def test_html_to_pdf_string_requires_resource_fetcher_content_to_be_a_string
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
+        resource_fetcher: ->(_url) { { content: nil, mime_type: 'text/css' } }
+      )
+    end
+
+    assert_equal 'resource_fetcher result content must be a String', error.message
+  end
+
+  def test_html_to_pdf_string_requires_resource_fetcher_mime_type_to_be_a_string
+    error = assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
+        resource_fetcher: ->(_url) { { content: 'body {}', mime_type: nil } }
+      )
+    end
+
+    assert_equal 'resource_fetcher result mime_type must be a String', error.message
+  end
+
+  def test_html_to_pdf_string_reraises_resource_fetcher_errors
+    error = assert_raises(RuntimeError) do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
+        resource_fetcher: ->(_url) { raise 'fetch failed' }
+      )
+    end
+
+    assert_equal 'fetch failed', error.message
   end
 
   def test_html_to_pdf_string_requires_html_to_be_a_string
@@ -228,5 +401,11 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'unknown keyword: :foo', error.message
+  end
+
+  private
+
+  def fake_rails(public_path)
+    Struct.new(:public_path).new(public_path)
   end
 end
