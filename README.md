@@ -95,7 +95,13 @@ Render a PDF from a controller:
 class PrintsController < ApplicationController
   def pdf
     html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
-    pdf = PagePrint.html_to_pdf_string(html, page_size: :a4, margins: :normal, media: :print, metadata: { title: "Print PDF", author: "PagePrint" })
+    pdf = PagePrint.html_to_pdf_string(
+      html,
+      page_size: :a4,
+      margins: :normal,
+      media: :print,
+      metadata: { title: "Print PDF", author: "PagePrint" }
+    )
 
     send_data pdf, filename: "print.pdf", type: "application/pdf", disposition: "inline"
   end
@@ -171,7 +177,7 @@ Supported keyword options:
 - `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`
 - `media:` one of `:print`, `:screen`
 - `resource_fetcher:` callable that receives a URL and returns `nil` or `{ content:, mime_type:, text_encoding: nil }`
-- `metadata:` hash with `:title`, `:author`, `:subject`, `:keywords`, `:creator`, `:creation_date`, or `:modification_date`
+- `metadata:` hash with `:title`, `:author`, `:subject`, `:keywords`, `:creation_date`, or `:modification_date`
 
 `metadata[:creation_date]` and `metadata[:modification_date]` should be ISO-8601 strings, for example `2026-05-10T12:00:00Z`.
 

@@ -238,7 +238,6 @@ class PagePrintTest < Minitest::Test
           author: 'PagePrint',
           subject: 'Metadata test',
           keywords: 'pdf,test',
-          creator: 'PagePrint test suite',
           creation_date: '2026-05-10T12:00:00Z',
           modification_date: nil
         }
@@ -285,7 +284,6 @@ class PagePrintTest < Minitest::Test
         author: 'PagePrint',
         subject: 'Metadata test',
         keywords: 'pdf,test',
-        creator: 'PagePrint test suite',
         creation_date: '2026-05-10T12:00:00Z',
         modification_date: '2026-05-10T12:01:00Z'
       }
@@ -327,6 +325,14 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'metadata contains unknown key: :publisher', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_creator_metadata
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { creator: 'PagePrint' })
+    end
+
+    assert_equal 'metadata contains unknown key: :creator', error.message
   end
 
   def test_html_to_pdf_string_requires_metadata_values_to_be_strings_or_nil

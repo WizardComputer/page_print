@@ -28,7 +28,6 @@ static ID id_title;
 static ID id_author;
 static ID id_subject;
 static ID id_keywords;
-static ID id_creator;
 static ID id_creation_date;
 static ID id_modification_date;
 
@@ -174,7 +173,6 @@ static int pageprint_metadata_id_known(ID key_id)
            key_id == id_author ||
            key_id == id_subject ||
            key_id == id_keywords ||
-           key_id == id_creator ||
            key_id == id_creation_date ||
            key_id == id_modification_date;
 }
@@ -246,7 +244,6 @@ static void pageprint_apply_metadata(plutobook_t *book, VALUE metadata)
     pageprint_set_metadata_value(book, metadata, id_author, PLUTOBOOK_PDF_METADATA_AUTHOR);
     pageprint_set_metadata_value(book, metadata, id_subject, PLUTOBOOK_PDF_METADATA_SUBJECT);
     pageprint_set_metadata_value(book, metadata, id_keywords, PLUTOBOOK_PDF_METADATA_KEYWORDS);
-    pageprint_set_metadata_value(book, metadata, id_creator, PLUTOBOOK_PDF_METADATA_CREATOR);
     pageprint_set_metadata_value(book, metadata, id_creation_date, PLUTOBOOK_PDF_METADATA_CREATION_DATE);
     pageprint_set_metadata_value(book, metadata, id_modification_date, PLUTOBOOK_PDF_METADATA_MODIFICATION_DATE);
 }
@@ -635,6 +632,8 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     }
 
     RB_GC_GUARD(resource_fetcher.object);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(path);
 
     return Qtrue;
 }
@@ -686,6 +685,7 @@ static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
     }
 
     RB_GC_GUARD(resource_fetcher.object);
+    RB_GC_GUARD(options);
     RB_GC_GUARD(output.output);
 
     return output.output;
@@ -710,7 +710,6 @@ void Init_page_print(void) {
     id_author = rb_intern_const("author");
     id_subject = rb_intern_const("subject");
     id_keywords = rb_intern_const("keywords");
-    id_creator = rb_intern_const("creator");
     id_creation_date = rb_intern_const("creation_date");
     id_modification_date = rb_intern_const("modification_date");
 
