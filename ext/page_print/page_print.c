@@ -1,6 +1,8 @@
 #include "ruby.h"
 #include "ruby/encoding.h"
+#include "ruby/thread.h"
 #include <limits.h>
+#include <stdint.h>
 #include <plutobook/plutobook.h>
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -32,6 +34,31 @@ typedef struct {
     const char *data;
     unsigned int length;
 } pageprint_pdf_string_append_t;
+
+typedef struct {
+    plutobook_t *book;
+    const char *html;
+    int length;
+    const char *user_style;
+    const char *user_script;
+    const char *base_url;
+    int ok;
+} pageprint_load_html_args_t;
+
+typedef struct {
+    plutobook_t *book;
+    const char *path;
+    int ok;
+} pageprint_write_pdf_args_t;
+
+typedef struct {
+    plutobook_t *book;
+    pageprint_pdf_string_output_t *output;
+    int ok;
+} pageprint_write_pdf_stream_args_t;
+
+static VALUE pageprint_append_pdf_string(VALUE value);
+static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const char *data, unsigned int length);
 
 static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error(VALUE error_class, const char *message)
 {
@@ -112,6 +139,50 @@ static plutobook_media_type_t pageprint_media_from_value(VALUE value)
     rb_raise(rb_eArgError, "media must be one of: :print, :screen");
 }
 
+static void *pageprint_load_html_without_gvl(void *ptr)
+{
+    pageprint_load_html_args_t *args = ptr;
+
+    args->ok = plutobook_load_html(
+        args->book,
+        args->html,
+        args->length,
+        args->user_style,
+        args->user_script,
+        args->base_url
+    );
+
+    return NULL;
+}
+
+static void *pageprint_write_pdf_without_gvl(void *ptr)
+{
+    pageprint_write_pdf_args_t *args = ptr;
+
+    args->ok = plutobook_write_to_pdf(args->book, args->path);
+
+    return NULL;
+}
+
+static void *pageprint_append_pdf_string_with_gvl(void *ptr)
+{
+    pageprint_pdf_string_append_t *append = ptr;
+    int state = 0;
+
+    rb_protect(pageprint_append_pdf_string, (VALUE)append, &state);
+
+    return (void *)(intptr_t)state;
+}
+
+static void *pageprint_write_pdf_stream_without_gvl(void *ptr)
+{
+    pageprint_write_pdf_stream_args_t *args = ptr;
+
+    args->ok = plutobook_write_to_pdf_stream(args->book, pageprint_write_pdf_string, args->output);
+
+    return NULL;
+}
+
 static pageprint_options_t pageprint_options_from_value(VALUE options)
 {
     pageprint_options_t result;
@@ -176,7 +247,7 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options)
     long html_len;
 
     plutobook_t *book;
-    int ok;
+    pageprint_load_html_args_t load_args;
 
     if (!RB_TYPE_P(html, T_STRING)) {
         rb_raise(rb_eTypeError, "html must be a String");
@@ -205,16 +276,22 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options)
     /* 2. Load HTML */
     plutobook_clear_error_message();
 
-    ok = plutobook_load_html(
-        book,
-        html_str,
-        (int)html_len,
-        "",     /* user style */
-        "",     /* user script */
-        pageprint_options.base_url
+    load_args.book = book;
+    load_args.html = html_str;
+    load_args.length = (int)html_len;
+    load_args.user_style = "";
+    load_args.user_script = "";
+    load_args.base_url = pageprint_options.base_url;
+    load_args.ok = 0;
+
+    rb_thread_call_without_gvl(
+        pageprint_load_html_without_gvl,
+        &load_args,
+        RUBY_UBF_IO,
+        NULL
     );
 
-    if (!ok) {
+    if (!load_args.ok) {
         plutobook_destroy(book);
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to load HTML into plutobook");
     }
@@ -235,14 +312,16 @@ static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const
 {
     pageprint_pdf_string_output_t *output = closure;
     pageprint_pdf_string_append_t append;
+    int state;
 
     append.output = output->output;
     append.data = data;
     append.length = length;
 
-    rb_protect(pageprint_append_pdf_string, (VALUE)&append, &output->state);
+    state = (int)(intptr_t)rb_thread_call_with_gvl(pageprint_append_pdf_string_with_gvl, &append);
 
-    if (output->state) {
+    if (state) {
+        output->state = state;
         return PLUTOBOOK_STREAM_STATUS_WRITE_ERROR;
     }
 
@@ -257,7 +336,7 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     const char *path_str;
 
     plutobook_t *book;
-    int ok;
+    pageprint_write_pdf_args_t write_args;
 
     rb_check_arity(argc, 2, 3);
 
@@ -279,10 +358,20 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
 
     plutobook_clear_error_message();
 
-    ok = plutobook_write_to_pdf(book, path_str);
+    write_args.book = book;
+    write_args.path = path_str;
+    write_args.ok = 0;
+
+    rb_thread_call_without_gvl(
+        pageprint_write_pdf_without_gvl,
+        &write_args,
+        RUBY_UBF_IO,
+        NULL
+    );
+
     plutobook_destroy(book);
 
-    if (!ok) {
+    if (!write_args.ok) {
         pageprint_raise_plutobook_error_with_path(rb_eRuntimeError, "failed to write PDF to", path_str);
     }
 
@@ -295,7 +384,7 @@ static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
     pageprint_pdf_string_output_t output;
 
     plutobook_t *book;
-    int ok;
+    pageprint_write_pdf_stream_args_t write_args;
 
     rb_check_arity(argc, 1, 2);
 
@@ -309,14 +398,24 @@ static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
 
     plutobook_clear_error_message();
 
-    ok = plutobook_write_to_pdf_stream(book, pageprint_write_pdf_string, &output);
+    write_args.book = book;
+    write_args.output = &output;
+    write_args.ok = 0;
+
+    rb_thread_call_without_gvl(
+        pageprint_write_pdf_stream_without_gvl,
+        &write_args,
+        RUBY_UBF_IO,
+        NULL
+    );
+
     plutobook_destroy(book);
 
     if (output.state) {
         rb_jump_tag(output.state);
     }
 
-    if (!ok) {
+    if (!write_args.ok) {
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to write PDF to string");
     }
 
