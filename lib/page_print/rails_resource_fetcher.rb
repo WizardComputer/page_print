@@ -20,118 +20,119 @@ module PagePrint
     end
 
     private
-      attr_reader :rails, :asset_prefix
 
-      def rails_constant
-        Object.const_get(:Rails) if Object.const_defined?(:Rails)
-      end
+    attr_reader :rails, :asset_prefix
 
-      def normalize_asset_prefix(value)
-        prefix = value.to_s
-        prefix = "/#{prefix}" unless prefix.start_with?('/')
-        prefix.delete_suffix('/')
-      end
+    def rails_constant
+      Object.const_get(:Rails) if Object.const_defined?(:Rails)
+    end
 
-      def path_from_url(url)
-        parsed = URI.parse(url.to_s)
-        parsed.path.empty? ? url.to_s : parsed.path
-      rescue URI::InvalidURIError
-        url.to_s
-      end
+    def normalize_asset_prefix(value)
+      prefix = value.to_s
+      prefix = "/#{prefix}" unless prefix.start_with?('/')
+      prefix.delete_suffix('/')
+    end
 
-      def read_public_asset(path)
-        public_path = rails_public_path
-        return unless public_path
+    def path_from_url(url)
+      parsed = URI.parse(url.to_s)
+      parsed.path.empty? ? url.to_s : parsed.path
+    rescue URI::InvalidURIError
+      url.to_s
+    end
 
-        relative_path = path.delete_prefix('/')
-        file_path = public_path.join(relative_path).cleanpath
-        return unless inside_path?(file_path, public_path)
-        return unless file_path.file?
+    def read_public_asset(path)
+      public_path = rails_public_path
+      return unless public_path
 
-        resource(File.binread(file_path), file_path.extname)
-      end
+      relative_path = path.delete_prefix('/')
+      file_path = public_path.join(relative_path).cleanpath
+      return unless inside_path?(file_path, public_path)
+      return unless file_path.file?
 
-      def read_resolved_asset(path)
-        asset_path = path.delete_prefix("#{asset_prefix}/")
-        content = read_from_propshaft(asset_path)
-        return resource(content, File.extname(asset_path)) if content
+      resource(File.binread(file_path), file_path.extname)
+    end
 
-        logical_path = propshaft_logical_path(asset_path)
-        return unless logical_path
+    def read_resolved_asset(path)
+      asset_path = path.delete_prefix("#{asset_prefix}/")
+      content = read_from_propshaft(asset_path)
+      return resource(content, File.extname(asset_path)) if content
 
-        content = read_from_propshaft(logical_path)
-        return unless content
+      logical_path = propshaft_logical_path(asset_path)
+      return unless logical_path
 
-        resource(content, File.extname(logical_path))
-      end
+      content = read_from_propshaft(logical_path)
+      return unless content
 
-      def read_from_propshaft(path)
-        resolver = rails_application&.assets&.resolver
-        return unless resolver&.respond_to?(:read)
+      resource(content, File.extname(logical_path))
+    end
 
-        resolver.read(path)
-      rescue StandardError
-        nil
-      end
+    def read_from_propshaft(path)
+      resolver = rails_application&.assets&.resolver
+      return unless resolver&.respond_to?(:read)
 
-      def propshaft_logical_path(asset_path)
-        resolver = rails_application&.assets&.resolver
-        return unless resolver&.respond_to?(:load_path)
-        return unless resolver.load_path.respond_to?(:find)
+      resolver.read(path)
+    rescue StandardError
+      nil
+    end
 
-        asset = resolver.load_path.find(asset_path)
-        asset&.logical_path&.to_s
-      rescue StandardError
-        nil
-      end
+    def propshaft_logical_path(asset_path)
+      resolver = rails_application&.assets&.resolver
+      return unless resolver&.respond_to?(:load_path)
+      return unless resolver.load_path.respond_to?(:find)
 
-      def rails_application
-        rails.application if rails.respond_to?(:application)
-      end
+      asset = resolver.load_path.find(asset_path)
+      asset&.logical_path&.to_s
+    rescue StandardError
+      nil
+    end
 
-      def rails_public_path
-        path = rails.public_path if rails.respond_to?(:public_path)
-        path ||= rails_application.public_path if rails_application&.respond_to?(:public_path)
-        return unless path
+    def rails_application
+      rails.application if rails.respond_to?(:application)
+    end
 
-        Pathname.new(path.to_s).cleanpath
-      end
+    def rails_public_path
+      path = rails.public_path if rails.respond_to?(:public_path)
+      path ||= rails_application.public_path if rails_application&.respond_to?(:public_path)
+      return unless path
 
-      def inside_path?(path, root)
-        relative_path = path.relative_path_from(root).to_s
-        relative_path != '..' && !relative_path.start_with?('../')
-      rescue ArgumentError
-        false
-      end
+      Pathname.new(path.to_s).cleanpath
+    end
 
-      def resource(content, extension)
-        { content: content, mime_type: mime_type_for(extension) }
-      end
+    def inside_path?(path, root)
+      relative_path = path.relative_path_from(root).to_s
+      relative_path != '..' && !relative_path.start_with?('../')
+    rescue ArgumentError
+      false
+    end
 
-      def mime_type_for(extension)
-        if defined?(Rack::Mime)
-          Rack::Mime.mime_type(extension, 'application/octet-stream')
-        else
-          fallback_mime_type_for(extension)
-        end
-      end
+    def resource(content, extension)
+      { content: content, mime_type: mime_type_for(extension) }
+    end
 
-      def fallback_mime_type_for(extension)
-        case extension.to_s.downcase
-        when '.css' then 'text/css'
-        when '.gif' then 'image/gif'
-        when '.html', '.htm' then 'text/html'
-        when '.jpeg', '.jpg' then 'image/jpeg'
-        when '.js', '.mjs' then 'text/javascript'
-        when '.otf' then 'font/otf'
-        when '.png' then 'image/png'
-        when '.svg' then 'image/svg+xml'
-        when '.ttf' then 'font/ttf'
-        when '.webp' then 'image/webp'
-        when '.woff' then 'font/woff'
-        when '.woff2' then 'font/woff2'
-        else 'application/octet-stream'
-        end
+    def mime_type_for(extension)
+      if defined?(Rack::Mime)
+        Rack::Mime.mime_type(extension, 'application/octet-stream')
+      else
+        fallback_mime_type_for(extension)
       end
     end
+
+    def fallback_mime_type_for(extension)
+      case extension.to_s.downcase
+      when '.css' then 'text/css'
+      when '.gif' then 'image/gif'
+      when '.html', '.htm' then 'text/html'
+      when '.jpeg', '.jpg' then 'image/jpeg'
+      when '.js', '.mjs' then 'text/javascript'
+      when '.otf' then 'font/otf'
+      when '.png' then 'image/png'
+      when '.svg' then 'image/svg+xml'
+      when '.ttf' then 'font/ttf'
+      when '.webp' then 'image/webp'
+      when '.woff' then 'font/woff'
+      when '.woff2' then 'font/woff2'
+      else 'application/octet-stream'
+      end
+    end
+  end
 end

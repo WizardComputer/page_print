@@ -91,7 +91,47 @@ Or run the default rake task, which compiles the extension and then runs tests:
 bundle exec rake
 ```
 
-## Usage
+## Rails Usage
+
+PagePrint is currently optimized for Rails applications using Propshaft. In Rails, PagePrint installs a default Propshaft-backed resource fetcher and uses the current request URL as the default `base_url`.
+
+Render a PDF from a controller:
+
+```ruby
+class PrintsController < ApplicationController
+  def pdf
+    html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
+    pdf = PagePrint.html_to_pdf_string(html, page_size: :a4, margins: :normal, media: :print)
+    send_data pdf, filename: "print.pdf", type: "application/pdf", disposition: "inline"
+  end
+end
+```
+
+Use normal Rails asset helpers in the PDF template or layout:
+
+```erb
+<%= stylesheet_link_tag "pdf" %>
+<%= image_tag "logo.png" %>
+```
+
+During controller actions, PagePrint defaults `base_url` to `request.base_url`. The default Rails resource fetcher resolves `/assets/...` through Propshaft or `public/assets`, avoiding HTTP requests back to the Rails app.
+
+You can still override `base_url` explicitly:
+
+```ruby
+pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
+```
+
+Override the fetcher only when needed:
+
+```ruby
+# config/initializers/page_print.rb
+PagePrint.configure do |config|
+  config.resource_fetcher = MyResourceFetcher.new
+end
+```
+
+## Ruby Usage
 
 ```ruby
 require "page_print"
@@ -127,23 +167,6 @@ PagePrint.configure do |config|
     { content: "body { font-family: sans-serif; }", mime_type: "text/css" }
   end
 end
-```
-
-In Rails, configure the built-in fetcher once to resolve `/assets/...` URLs without making HTTP requests back to the app:
-
-```ruby
-# config/initializers/page_print.rb
-PagePrint.configure do |config|
-  config.resource_fetcher = PagePrint::RailsResourceFetcher.new
-end
-```
-
-Then render PDFs with normal Rails asset paths:
-
-```ruby
-html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
-pdf = PagePrint.html_to_pdf_string(html, base_url: request.base_url)
-send_data pdf, filename: "print.pdf", type: "application/pdf", disposition: "inline"
 ```
 
 Supported keyword options:

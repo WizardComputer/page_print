@@ -18,6 +18,7 @@ static ID id_margins;
 static ID id_media;
 static ID id_resource_fetcher;
 static ID id_resource_fetcher_ivar;
+static ID id_base_url_method;
 static ID id_call;
 static ID id_content;
 static ID id_mime_type;
@@ -333,7 +334,11 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
     media_value = keyword_values[3];
     resource_fetcher_value = keyword_values[4];
 
-    if (base_url_value != Qundef && !NIL_P(base_url_value)) {
+    if (base_url_value == Qundef) {
+        base_url_value = rb_funcall(mPagePrint, id_base_url_method, 0);
+    }
+
+    if (!NIL_P(base_url_value)) {
         if (!RB_TYPE_P(base_url_value, T_STRING)) {
             rb_raise(rb_eTypeError, "base_url must be a String or nil");
         }
@@ -592,6 +597,7 @@ void Init_page_print(void) {
     id_media = rb_intern_const("media");
     id_resource_fetcher = rb_intern_const("resource_fetcher");
     id_resource_fetcher_ivar = rb_intern_const("@resource_fetcher");
+    id_base_url_method = rb_intern_const("base_url");
     id_call = rb_intern_const("call");
     id_content = rb_intern_const("content");
     id_mime_type = rb_intern_const("mime_type");

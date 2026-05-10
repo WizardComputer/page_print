@@ -8,6 +8,7 @@ require_relative '../lib/page_print'
 class PagePrintTest < Minitest::Test
   def teardown
     PagePrint.resource_fetcher = nil
+    PagePrint.base_url = nil
   end
 
   def test_has_a_version
@@ -97,6 +98,71 @@ class PagePrintTest < Minitest::Test
       assert_operator pdf.bytesize, :>, 0
       assert_equal '%PDF', pdf.byteslice(0, 4)
     end
+  end
+
+  def test_html_to_pdf_string_uses_configured_base_url
+    urls = []
+
+    PagePrint.base_url = 'http://example.com'
+
+    pdf = PagePrint.html_to_pdf_string(
+      '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
+      resource_fetcher: lambda { |url|
+        urls << url
+        { content: 'body { color: purple; }', mime_type: 'text/css' }
+      }
+    )
+
+    assert_includes urls, 'http://example.com/assets/pdf.css'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_uses_request_local_base_url
+    urls = []
+
+    pdf = PagePrint.with_base_url('http://request.example') do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
+        resource_fetcher: lambda { |url|
+          urls << url
+          { content: 'body { color: yellow; }', mime_type: 'text/css' }
+        }
+      )
+    end
+
+    assert_includes urls, 'http://request.example/assets/pdf.css'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_with_base_url_restores_previous_base_url
+    PagePrint.base_url = 'http://configured.example'
+
+    PagePrint.with_base_url('http://request.example') do
+      assert_equal 'http://request.example', PagePrint.base_url
+    end
+
+    assert_equal 'http://configured.example', PagePrint.base_url
+  end
+
+  def test_html_to_pdf_string_does_not_override_explicit_base_url
+    urls = []
+
+    pdf = PagePrint.with_base_url('http://request.example') do
+      PagePrint.html_to_pdf_string(
+        '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
+        base_url: 'http://explicit.example',
+        resource_fetcher: lambda { |url|
+          urls << url
+          { content: 'body { color: orange; }', mime_type: 'text/css' }
+        }
+      )
+    end
+
+    assert_includes urls, 'http://explicit.example/assets/pdf.css'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
   def test_html_to_pdf_requires_html_to_be_a_string
@@ -408,4 +474,5 @@ class PagePrintTest < Minitest::Test
   def fake_rails(public_path)
     Struct.new(:public_path).new(public_path)
   end
+
 end
