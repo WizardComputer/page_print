@@ -158,6 +158,16 @@ To get the generated PDF as a binary string instead of writing directly to a fil
 pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
 ```
 
+Use custom page dimensions and margins when a preset is not enough:
+
+```ruby
+pdf = PagePrint.html_to_pdf_string(
+  html,
+  page_size: { width: 100, height: 150, unit: :mm },
+  margins: { top: 5, right: 6, bottom: 7, left: 8, unit: :mm }
+)
+```
+
 You can configure default options once, for example to provide a resource fetcher used by all renders:
 
 ```ruby
@@ -173,13 +183,15 @@ end
 Supported keyword options:
 
 - `base_url:` string used to resolve relative URLs in the HTML
-- `page_size:` one of `:a3`, `:a4`, `:a5`, `:b4`, `:b5`, `:letter`, `:legal`, `:ledger`
-- `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`
+- `page_size:` one of `:a3`, `:a4`, `:a5`, `:b4`, `:b5`, `:letter`, `:legal`, `:ledger`, or `{ width:, height:, unit: }`
+- `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`, or `{ top:, right:, bottom:, left:, unit: }`
 - `media:` one of `:print`, `:screen`
 - `resource_fetcher:` callable that receives a URL and returns `nil` or `{ content:, mime_type:, text_encoding: nil }`
 - `metadata:` hash with `:title`, `:author`, `:subject`, `:keywords`, `:creation_date`, or `:modification_date`
 
 `metadata[:creation_date]` and `metadata[:modification_date]` should be ISO-8601 strings, for example `2026-05-10T12:00:00Z`.
+
+Custom dimensions and margins require `unit:`. Supported units are `:pt`, `:pc`, `:in`, `:cm`, `:mm`, and `:px`.
 
 ## Notes
 

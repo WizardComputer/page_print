@@ -18,6 +18,13 @@ static ID id_margins;
 static ID id_media;
 static ID id_resource_fetcher;
 static ID id_metadata;
+static ID id_width;
+static ID id_height;
+static ID id_unit;
+static ID id_top;
+static ID id_right;
+static ID id_bottom;
+static ID id_left;
 static ID id_resource_fetcher_ivar;
 static ID id_base_url_method;
 static ID id_call;
@@ -30,6 +37,12 @@ static ID id_subject;
 static ID id_keywords;
 static ID id_creation_date;
 static ID id_modification_date;
+static ID id_pt;
+static ID id_pc;
+static ID id_in;
+static ID id_cm;
+static ID id_mm;
+static ID id_px;
 
 typedef struct {
     plutobook_page_size_t page_size;
@@ -110,12 +123,68 @@ static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error_with_path(VALUE e
     rb_raise(error_class, "%s %s", message, path);
 }
 
-static plutobook_page_size_t pageprint_page_size_from_value(VALUE value)
+static double pageprint_unit_factor_from_value(VALUE value, const char *name)
 {
     ID value_id;
 
     if (!RB_SYMBOL_P(value)) {
-        rb_raise(rb_eTypeError, "page_size must be a Symbol");
+        rb_raise(rb_eTypeError, "%s must be a Symbol", name);
+    }
+
+    value_id = SYM2ID(value);
+
+    if (value_id == id_pt) return PLUTOBOOK_UNITS_PT;
+    if (value_id == id_pc) return PLUTOBOOK_UNITS_PC;
+    if (value_id == id_in) return PLUTOBOOK_UNITS_IN;
+    if (value_id == id_cm) return PLUTOBOOK_UNITS_CM;
+    if (value_id == id_mm) return PLUTOBOOK_UNITS_MM;
+    if (value_id == id_px) return PLUTOBOOK_UNITS_PX;
+
+    rb_raise(rb_eArgError, "%s must be one of: :pt, :pc, :in, :cm, :mm, :px", name);
+}
+
+static plutobook_page_size_t pageprint_page_size_from_value(VALUE value)
+{
+    ID value_id;
+
+    if (RB_TYPE_P(value, T_HASH)) {
+        VALUE width = rb_hash_aref(value, ID2SYM(id_width));
+        VALUE height = rb_hash_aref(value, ID2SYM(id_height));
+        VALUE unit = rb_hash_aref(value, ID2SYM(id_unit));
+        double width_number;
+        double height_number;
+        double factor;
+
+        if (NIL_P(width)) {
+            rb_raise(rb_eArgError, "page_size requires :width");
+        }
+
+        if (NIL_P(height)) {
+            rb_raise(rb_eArgError, "page_size requires :height");
+        }
+
+        if (NIL_P(unit)) {
+            rb_raise(rb_eArgError, "page_size requires :unit");
+        }
+
+        width_number = NUM2DBL(width);
+        height_number = NUM2DBL(height);
+
+        if (width_number <= 0) {
+            rb_raise(rb_eArgError, "page_size width must be greater than 0");
+        }
+
+        if (height_number <= 0) {
+            rb_raise(rb_eArgError, "page_size height must be greater than 0");
+        }
+
+        factor = pageprint_unit_factor_from_value(unit, "page_size unit");
+
+        return PLUTOBOOK_MAKE_PAGE_SIZE((float)(width_number * factor), (float)(height_number * factor));
+    }
+
+    if (!RB_SYMBOL_P(value)) {
+        rb_raise(rb_eTypeError, "page_size must be a Symbol or Hash");
     }
 
     value_id = SYM2ID(value);
@@ -136,8 +205,59 @@ static plutobook_page_margins_t pageprint_margins_from_value(VALUE value)
 {
     ID value_id;
 
+    if (RB_TYPE_P(value, T_HASH)) {
+        VALUE top = rb_hash_aref(value, ID2SYM(id_top));
+        VALUE right = rb_hash_aref(value, ID2SYM(id_right));
+        VALUE bottom = rb_hash_aref(value, ID2SYM(id_bottom));
+        VALUE left = rb_hash_aref(value, ID2SYM(id_left));
+        VALUE unit = rb_hash_aref(value, ID2SYM(id_unit));
+        double top_number;
+        double right_number;
+        double bottom_number;
+        double left_number;
+        double factor;
+
+        if (NIL_P(top)) {
+            rb_raise(rb_eArgError, "margins requires :top");
+        }
+
+        if (NIL_P(right)) {
+            rb_raise(rb_eArgError, "margins requires :right");
+        }
+
+        if (NIL_P(bottom)) {
+            rb_raise(rb_eArgError, "margins requires :bottom");
+        }
+
+        if (NIL_P(left)) {
+            rb_raise(rb_eArgError, "margins requires :left");
+        }
+
+        if (NIL_P(unit)) {
+            rb_raise(rb_eArgError, "margins requires :unit");
+        }
+
+        top_number = NUM2DBL(top);
+        right_number = NUM2DBL(right);
+        bottom_number = NUM2DBL(bottom);
+        left_number = NUM2DBL(left);
+
+        if (top_number < 0 || right_number < 0 || bottom_number < 0 || left_number < 0) {
+            rb_raise(rb_eArgError, "margins values must be greater than or equal to 0");
+        }
+
+        factor = pageprint_unit_factor_from_value(unit, "margins unit");
+
+        return PLUTOBOOK_MAKE_PAGE_MARGINS(
+            (float)(top_number * factor),
+            (float)(right_number * factor),
+            (float)(bottom_number * factor),
+            (float)(left_number * factor)
+        );
+    }
+
     if (!RB_SYMBOL_P(value)) {
-        rb_raise(rb_eTypeError, "margins must be a Symbol");
+        rb_raise(rb_eTypeError, "margins must be a Symbol or Hash");
     }
 
     value_id = SYM2ID(value);
@@ -700,6 +820,13 @@ void Init_page_print(void) {
     id_media = rb_intern_const("media");
     id_resource_fetcher = rb_intern_const("resource_fetcher");
     id_metadata = rb_intern_const("metadata");
+    id_width = rb_intern_const("width");
+    id_height = rb_intern_const("height");
+    id_unit = rb_intern_const("unit");
+    id_top = rb_intern_const("top");
+    id_right = rb_intern_const("right");
+    id_bottom = rb_intern_const("bottom");
+    id_left = rb_intern_const("left");
     id_resource_fetcher_ivar = rb_intern_const("@resource_fetcher");
     id_base_url_method = rb_intern_const("base_url");
     id_call = rb_intern_const("call");
@@ -712,6 +839,12 @@ void Init_page_print(void) {
     id_keywords = rb_intern_const("keywords");
     id_creation_date = rb_intern_const("creation_date");
     id_modification_date = rb_intern_const("modification_date");
+    id_pt = rb_intern_const("pt");
+    id_pc = rb_intern_const("pc");
+    id_in = rb_intern_const("in");
+    id_cm = rb_intern_const("cm");
+    id_mm = rb_intern_const("mm");
+    id_px = rb_intern_const("px");
 
     rb_define_singleton_method(mPagePrint, "html_to_pdf", RUBY_METHOD_FUNC(pageprint_html_to_pdf), -1);
     rb_define_singleton_method(mPagePrint, "html_to_pdf_string", RUBY_METHOD_FUNC(pageprint_html_to_pdf_string), -1);

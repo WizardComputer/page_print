@@ -226,6 +226,23 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_html_to_pdf_accepts_custom_page_size_and_margins
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'output.pdf')
+
+      assert PagePrint.html_to_pdf(
+        '<html><body><h1>Hello</h1></body></html>',
+        output_path,
+        page_size: { width: 100, height: 150, unit: :mm },
+        margins: { top: 5, right: 6, bottom: 7, left: 8, unit: :mm }
+      )
+
+      assert File.exist?(output_path)
+      assert_operator File.size(output_path), :>, 0
+      assert_match(/Page size:\s+283\.\d+ x 425\.\d+ pts/, pdfinfo(output_path))
+    end
+  end
+
   def test_html_to_pdf_accepts_metadata
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
@@ -517,12 +534,36 @@ class PagePrintTest < Minitest::Test
     assert_equal 'page_size must be one of: :a3, :a4, :a5, :b4, :b5, :letter, :legal, :ledger', error.message
   end
 
-  def test_html_to_pdf_requires_page_size_to_be_a_symbol
+  def test_html_to_pdf_requires_page_size_to_be_a_symbol_or_hash
     error = assert_raises(TypeError) do
       PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: 'letter')
     end
 
-    assert_equal 'page_size must be a Symbol', error.message
+    assert_equal 'page_size must be a Symbol or Hash', error.message
+  end
+
+  def test_html_to_pdf_requires_custom_page_size_unit
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150 })
+    end
+
+    assert_equal 'page_size requires :unit', error.message
+  end
+
+  def test_html_to_pdf_rejects_invalid_custom_page_size_unit
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150, unit: :meter })
+    end
+
+    assert_equal 'page_size unit must be one of: :pt, :pc, :in, :cm, :mm, :px', error.message
+  end
+
+  def test_html_to_pdf_rejects_non_positive_custom_page_size
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 0, height: 150, unit: :mm })
+    end
+
+    assert_equal 'page_size width must be greater than 0', error.message
   end
 
   def test_html_to_pdf_rejects_invalid_margins
@@ -533,12 +574,28 @@ class PagePrintTest < Minitest::Test
     assert_equal 'margins must be one of: :none, :normal, :narrow, :moderate, :wide', error.message
   end
 
-  def test_html_to_pdf_requires_margins_to_be_a_symbol
+  def test_html_to_pdf_requires_margins_to_be_a_symbol_or_hash
     error = assert_raises(TypeError) do
       PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: 'narrow')
     end
 
-    assert_equal 'margins must be a Symbol', error.message
+    assert_equal 'margins must be a Symbol or Hash', error.message
+  end
+
+  def test_html_to_pdf_requires_custom_margins_unit
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: 1, right: 1, bottom: 1, left: 1 })
+    end
+
+    assert_equal 'margins requires :unit', error.message
+  end
+
+  def test_html_to_pdf_rejects_negative_custom_margins
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: -1, right: 1, bottom: 1, left: 1, unit: :mm })
+    end
+
+    assert_equal 'margins values must be greater than or equal to 0', error.message
   end
 
   def test_html_to_pdf_rejects_invalid_media
