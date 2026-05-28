@@ -27,15 +27,13 @@ jobs:
             pkg-config \
             meson \
             ninja-build \
+            patchelf \
             libcairo2-dev \
             libexpat1-dev \
             libicu-dev \
             libfreetype6-dev \
             libfontconfig1-dev \
-            libharfbuzz-dev \
-            libcurl4-openssl-dev \
-            libturbojpeg0-dev \
-            libwebp-dev
+            libharfbuzz-dev
 
       - name: Build native Linux gem
         run: bundle exec rake package:linux
@@ -47,6 +45,10 @@ jobs:
         run: |
           gem install pkg/page_print-*-x86_64-linux.gem
           ruby -e 'require "page_print"; pdf = PagePrint.html_to_pdf_string("<html><body><h1>Hello</h1></body></html>"); abort "bad pdf" unless pdf.start_with?("%PDF"); puts "ok"'
+
+      - name: Smoke test native Linux gem in clean Ruby image
+        run: |
+          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.4.7-slim bash -lc 'gem install /pkg/page_print-*-x86_64-linux.gem && ruby -e "require \"page_print\"; pdf = PagePrint.html_to_pdf_string(\"<html><body><h1>Hello</h1></body></html>\"); abort \"bad pdf\" unless pdf.start_with?(\"%PDF\"); puts \"ok\""'
 
       - uses: actions/upload-artifact@v4
         with:
