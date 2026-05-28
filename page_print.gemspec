@@ -14,13 +14,21 @@ Gem::Specification.new do |spec|
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.0'
 
+  precompiled = ENV['PAGE_PRINT_PRECOMPILED'] == '1'
+
   spec.files = Dir.glob('{lib,ext}/**/*', File::FNM_DOTMATCH).reject do |path|
     File.directory?(path) || path.match?(%r{/(?:Makefile|mkmf\.log|.*\.(?:o|bundle))\z})
   end + ['README.md', 'LICENSE']
   spec.bindir = 'exe'
   spec.executables = []
   spec.require_paths = ['lib']
-  spec.extensions = ['ext/page_print/extconf.rb']
+
+  if precompiled
+    spec.platform = Gem::Platform.new(ENV.fetch('PAGE_PRINT_PRECOMPILED_PLATFORM', Gem::Platform.local.to_s))
+    spec.files += Dir.glob('lib/page_print/**/*.{so,dylib}', File::FNM_DOTMATCH)
+  else
+    spec.extensions = ['ext/page_print/extconf.rb']
+  end
 
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = spec.homepage

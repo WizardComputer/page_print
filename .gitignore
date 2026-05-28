@@ -10,6 +10,7 @@
 /ext/page_print/*.o
 /lib/page_print/*.bundle
 /lib/page_print/*.so
+/lib/page_print/vendor/
 /pkg/
 /tmp/
 /.ruby-lsp/
