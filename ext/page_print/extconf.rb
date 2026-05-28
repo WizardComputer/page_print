@@ -20,7 +20,7 @@ if File.directory?(vendor_include_dir) && File.directory?(vendor_lib_dir)
   dir_config('plutobook', vendor_include_dir, vendor_lib_dir)
 
   if vendor_platform.end_with?('-linux')
-    $LDFLAGS = "-Wl,-rpath,\$ORIGIN/vendor/#{vendor_platform}/lib #{$LDFLAGS}"
+    $LDFLAGS = "-Wl,-rpath,\\$$ORIGIN/vendor/#{vendor_platform}/lib #{$LDFLAGS}"
   end
 else
   pkg_config('plutobook')

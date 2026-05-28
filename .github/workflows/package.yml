@@ -40,6 +40,14 @@ jobs:
       - name: Build native Linux gem
         run: bundle exec rake package:linux
 
+      - name: Inspect native extension rpath
+        run: readelf -d lib/page_print/page_print.so | grep -E 'RPATH|RUNPATH'
+
+      - name: Smoke test native Linux gem
+        run: |
+          gem install pkg/page_print-*-x86_64-linux.gem
+          ruby -e 'require "page_print"; pdf = PagePrint.html_to_pdf_string("<html><body><h1>Hello</h1></body></html>"); abort "bad pdf" unless pdf.start_with?("%PDF"); puts "ok"'
+
       - uses: actions/upload-artifact@v4
         with:
           name: page_print-linux-gem
