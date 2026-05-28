@@ -1,6 +1,8 @@
 require "rake/extensiontask"
 require "rake/testtask"
 
+Dir.glob("rakelib/*.rake").each { |path| import path }
+
 spec = Gem::Specification.load("page_print.gemspec")
 
 Rake::ExtensionTask.new("page_print", spec) do |ext|

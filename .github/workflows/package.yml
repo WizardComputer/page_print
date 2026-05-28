@@ -1,0 +1,46 @@
+name: Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.7"
+          bundler-cache: true
+
+      - name: Install PlutoBook build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            pkg-config \
+            meson \
+            ninja-build \
+            libcairo2-dev \
+            libexpat1-dev \
+            libicu-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libcurl4-openssl-dev \
+            libturbojpeg0-dev \
+            libwebp-dev
+
+      - name: Build native Linux gem
+        run: bundle exec rake package:linux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: page_print-linux-gem
+          path: pkg/page_print-*-x86_64-linux.gem
