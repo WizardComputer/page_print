@@ -5,6 +5,8 @@ def page_print_native_platform
 
   if platform.os == 'linux' && platform.cpu == 'x86_64'
     'x86_64-linux'
+  elsif platform.os == 'darwin' && platform.cpu == 'arm64'
+    'arm64-darwin'
   else
     platform.to_s
   end
