@@ -5,7 +5,10 @@
 ## Requirements
 
 - Ruby 3.0+
-- `plutobook` development headers and library available to the compiler
+- Native gems are published for `x86_64-linux` and `arm64-darwin`.
+- Source builds on unsupported platforms require PlutoBook development headers and library files.
+
+### Source Build Requirements
 
 On macOS with Homebrew:
 
@@ -21,13 +24,27 @@ gem install page_print -- --with-plutobook-include=/path/to/include --with-pluto
 
 ## Installation
 
-Install from RubyGems:
+Add PagePrint to your Gemfile:
+
+```ruby
+gem "page_print", "~> 0.1.1"
+```
+
+Or install from RubyGems directly:
 
 ```sh
 gem install page_print
 ```
 
-Native gems are published for `x86_64-linux` and `arm64-darwin`. Other platforms install the source gem and require PlutoBook development headers and libraries to be available.
+The native gems bundle PlutoBook and required non-system shared libraries. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled in native gems to keep the bundled dependency set smaller.
+
+## Supported Platforms
+
+| Platform | Install Type |
+|---|---|
+| `x86_64-linux` | Native gem |
+| `arm64-darwin` | Native gem |
+| Other platforms | Source build |
 
 ## Local Build
 
@@ -35,7 +52,7 @@ Build and install locally:
 
 ```sh
 gem build page_print.gemspec
-gem install ./page_print-0.1.1.gem
+gem install ./page_print-*.gem
 ```
 
 ## Development
@@ -227,3 +244,4 @@ Custom dimensions and margins require `unit:`. Supported units are `:pt`, `:pc`,
 
 - The extension supports writing to a file path with `html_to_pdf` or returning PDF bytes with `html_to_pdf_string`.
 - JavaScript execution is intentionally unsupported.
+- Native gems disable PlutoBook's optional curl, TurboJPEG, and WebP features.
