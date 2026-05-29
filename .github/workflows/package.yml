@@ -7,6 +7,25 @@ on:
       - "v*"
 
 jobs:
+  source:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.7"
+          bundler-cache: true
+
+      - name: Build source gem
+        run: gem build page_print.gemspec
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: page_print-source-gem
+          path: page_print-*.gem
+
   linux:
     runs-on: ubuntu-latest
 

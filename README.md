@@ -21,11 +21,21 @@ gem install page_print -- --with-plutobook-include=/path/to/include --with-pluto
 
 ## Installation
 
+Install from RubyGems:
+
+```sh
+gem install page_print
+```
+
+Native gems are published for `x86_64-linux` and `arm64-darwin`. Other platforms install the source gem and require PlutoBook development headers and libraries to be available.
+
+## Local Build
+
 Build and install locally:
 
 ```sh
 gem build page_print.gemspec
-gem install ./page_print-0.1.0.gem
+gem install ./page_print-0.1.1.gem
 ```
 
 ## Development

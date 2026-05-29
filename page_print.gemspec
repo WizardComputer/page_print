@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = 'Render HTML to PDF from Ruby using plutobook'
   spec.description = 'A Ruby gem with a native extension that renders HTML strings to PDF files via the plutobook C library.'
-  spec.homepage = 'https://example.com/page_print'
+  spec.homepage = 'https://github.com/WizardComputer/page_print'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.0'
 
@@ -32,4 +32,5 @@ Gem::Specification.new do |spec|
 
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = spec.homepage
+  spec.metadata['changelog_uri'] = 'https://github.com/WizardComputer/page_print/releases'
 end
