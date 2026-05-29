@@ -76,10 +76,13 @@ def vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
     darwin_libraries_for(binary).each do |library_path|
       next if darwin_system_library?(library_path)
 
+      resolved_path = resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
+      next unless resolved_path
+
       target_path = File.join(vendor_lib_dir, File.basename(library_path))
 
       unless File.exist?(target_path)
-        File.binwrite(target_path, File.binread(File.realpath(library_path)))
+        File.binwrite(target_path, File.binread(File.realpath(resolved_path)))
         FileUtils.chmod(0o755, target_path)
       end
 
@@ -134,11 +137,33 @@ def verify_no_missing_darwin_libraries(extension_path, vendor_lib_dir)
     darwin_libraries_for(binary).each do |library_path|
       next if darwin_system_library?(library_path)
       next if library_path.start_with?("@rpath/") && vendored_names.include?(library_path.delete_prefix("@rpath/"))
-      next if library_path.start_with?("@loader_path/")
+      next if library_path.start_with?("@loader_path/") && resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
 
       abort "Unvendored macOS shared library for #{binary}: #{library_path}"
     end
   end
+end
+
+def resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
+  if library_path.start_with?("/")
+    return library_path if File.exist?(library_path)
+  elsif library_path.start_with?("@loader_path/")
+    resolved_path = File.expand_path(library_path.delete_prefix("@loader_path/"), File.dirname(binary))
+    return resolved_path if File.exist?(resolved_path)
+  elsif library_path.start_with?("@rpath/")
+    relative_path = library_path.delete_prefix("@rpath/")
+
+    darwin_rpaths_for(binary).each do |rpath|
+      resolved_rpath = rpath.sub("@loader_path", File.dirname(binary))
+      resolved_path = File.expand_path(relative_path, resolved_rpath)
+      return resolved_path if File.exist?(resolved_path)
+    end
+
+    vendored_path = File.join(vendor_lib_dir, relative_path)
+    return vendored_path if File.exist?(vendored_path)
+  end
+
+  nil
 end
 
 def darwin_libraries_for(binary)
