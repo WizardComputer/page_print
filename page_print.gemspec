@@ -15,9 +15,14 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.0'
 
   precompiled = ENV['PAGE_PRINT_PRECOMPILED'] == '1'
+  vendor_only = ENV['PAGE_PRINT_VENDOR_ONLY'] == '1'
+
+  vendor_files = Dir.glob('lib/page_print/vendor/**/*', File::FNM_DOTMATCH).reject { |path| File.directory?(path) }
 
   spec.files = Dir.glob('{lib,ext}/**/*', File::FNM_DOTMATCH).reject do |path|
-    File.directory?(path) || path.match?(%r{/(?:Makefile|mkmf\.log|.*\.(?:o|bundle))\z})
+    File.directory?(path) ||
+      path.start_with?('lib/page_print/vendor/') ||
+      path.match?(%r{/(?:Makefile|mkmf\.log|.*\.(?:o|bundle))\z})
   end + ['README.md', 'LICENSE']
   spec.bindir = 'exe'
   spec.executables = []
@@ -25,7 +30,12 @@ Gem::Specification.new do |spec|
 
   if precompiled
     spec.platform = Gem::Platform.new(ENV.fetch('PAGE_PRINT_PRECOMPILED_PLATFORM', Gem::Platform.local.to_s))
-    spec.files += Dir.glob('lib/page_print/**/*.{so,bundle,dylib}', File::FNM_DOTMATCH)
+    spec.files += vendor_files
+    spec.files += Dir.glob('lib/page_print/**/*.{so,bundle}', File::FNM_DOTMATCH)
+  elsif vendor_only
+    spec.platform = Gem::Platform.new(ENV.fetch('PAGE_PRINT_PRECOMPILED_PLATFORM', Gem::Platform.local.to_s))
+    spec.extensions = ['ext/page_print/extconf.rb']
+    spec.files += vendor_files
   else
     spec.extensions = ['ext/page_print/extconf.rb']
   end

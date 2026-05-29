@@ -50,9 +50,10 @@ namespace :package do
     vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
     patch_darwin_install_names(extension_path, vendor_lib_dir)
     verify_no_missing_darwin_libraries(extension_path, vendor_lib_dir)
+    FileUtils.rm_f(extension_path)
 
     Bundler.with_unbundled_env do
-      sh({ "PAGE_PRINT_PRECOMPILED" => "1", "PAGE_PRINT_PRECOMPILED_PLATFORM" => PAGE_PRINT_DARWIN_PLATFORM }, "gem build page_print.gemspec")
+      sh({ "PAGE_PRINT_VENDOR_ONLY" => "1", "PAGE_PRINT_PRECOMPILED_PLATFORM" => PAGE_PRINT_DARWIN_PLATFORM }, "gem build page_print.gemspec")
     end
 
     gem_path = Dir.glob(File.join(root, "page_print-*-#{PAGE_PRINT_DARWIN_PLATFORM}.gem")).max_by { |path| File.mtime(path) }

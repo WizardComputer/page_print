@@ -96,8 +96,9 @@ jobs:
       - name: Build native Apple Silicon macOS gem
         run: bundle exec rake package:darwin_arm64
 
-      - name: Inspect native extension libraries
-        run: otool -L lib/page_print/page_print.bundle
+      - name: Verify macOS gem compiles extension on install
+        run: |
+          ruby -rrubygems/package -e 'gem_path = Dir["pkg/page_print-*-arm64-darwin.gem"].fetch(0); spec = Gem::Package.new(gem_path).spec; abort "macOS gem must not include precompiled Ruby extension" if spec.files.any? { |file| file == "lib/page_print/page_print.bundle" }'
 
       - name: Smoke test native Apple Silicon macOS gem
         run: |
