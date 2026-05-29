@@ -25,7 +25,7 @@ Gem::Specification.new do |spec|
 
   if precompiled
     spec.platform = Gem::Platform.new(ENV.fetch('PAGE_PRINT_PRECOMPILED_PLATFORM', Gem::Platform.local.to_s))
-    spec.files += Dir.glob('lib/page_print/**/*.{so,dylib}', File::FNM_DOTMATCH)
+    spec.files += Dir.glob('lib/page_print/**/*.{so,bundle,dylib}', File::FNM_DOTMATCH)
   else
     spec.extensions = ['ext/page_print/extconf.rb']
   end

@@ -54,3 +54,38 @@ jobs:
         with:
           name: page_print-linux-gem
           path: pkg/page_print-*-x86_64-linux.gem
+
+  darwin-arm64:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.7"
+          bundler-cache: true
+
+      - name: Install PlutoBook build dependencies
+        run: |
+          brew update
+          brew install meson ninja pkg-config cairo freetype harfbuzz fontconfig expat icu4c
+
+      - name: Configure Homebrew pkg-config paths
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix icu4c)/lib/pkgconfig:$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
+
+      - name: Build native Apple Silicon macOS gem
+        run: bundle exec rake package:darwin_arm64
+
+      - name: Inspect native extension libraries
+        run: otool -L lib/page_print/page_print.bundle
+
+      - name: Smoke test native Apple Silicon macOS gem
+        run: |
+          gem install pkg/page_print-*-arm64-darwin.gem
+          ruby -e 'require "page_print"; pdf = PagePrint.html_to_pdf_string("<html><body><h1>Hello</h1></body></html>"); abort "bad pdf" unless pdf.start_with?("%PDF"); puts "ok"'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: page_print-darwin-arm64-gem
+          path: pkg/page_print-*-arm64-darwin.gem

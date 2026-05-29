@@ -85,7 +85,7 @@ Or run the default rake task, which compiles the extension and then runs tests:
 bundle exec rake
 ```
 
-## Building A Native Linux Gem
+## Building Native Gems
 
 Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
 
@@ -93,11 +93,17 @@ Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
 bundle exec rake package:linux
 ```
 
-This task checks out PlutoBook `v0.17.0`, builds it into `lib/page_print/vendor/x86_64-linux`, compiles the PagePrint native extension against that vendored build, and writes a platform gem to `pkg/`.
+Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
 
-The Linux native gem bundles `libplutobook`, but it still expects PlutoBook's standard runtime libraries to exist on the target system, such as Cairo, FreeType, HarfBuzz, Fontconfig, Expat, ICU, curl, TurboJPEG, and WebP.
+```sh
+bundle exec rake package:darwin_arm64
+```
 
-The packaging task expects PlutoBook's build dependencies to be installed on the build machine, including Meson, Ninja, pkg-config, Cairo, FreeType, HarfBuzz, Fontconfig, Expat, ICU, curl, TurboJPEG, and WebP.
+These tasks check out PlutoBook `v0.17.0`, build it into `lib/page_print/vendor/<platform>`, compile the PagePrint native extension against that vendored build, and write a platform gem to `pkg/`.
+
+Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
+
+The packaging tasks expect PlutoBook's build dependencies to be installed on the build machine, including Meson, Ninja, pkg-config, Cairo, FreeType, HarfBuzz, Fontconfig, Expat, and ICU.
 
 ## Rails Usage
 
