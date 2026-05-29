@@ -9,6 +9,9 @@ PAGE_PRINT_DARWIN_SYSTEM_PREFIXES = [
   "/System/Library/",
   "/usr/lib/"
 ].freeze
+PAGE_PRINT_DARWIN_EXCLUDED_LIBRARIES = %w[
+  libruby.
+].freeze
 
 namespace :package do
   desc "Build a precompiled Apple Silicon macOS gem with vendored PlutoBook"
@@ -66,6 +69,7 @@ end
 def vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
   queue = [ extension_path, *Dir.glob(File.join(vendor_lib_dir, "*.dylib")) ]
   seen = {}
+  source_paths = { extension_path => extension_path }
 
   until queue.empty?
     binary = queue.shift
@@ -75,8 +79,9 @@ def vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
 
     darwin_libraries_for(binary).each do |library_path|
       next if darwin_system_library?(library_path)
+      next if darwin_excluded_library?(library_path)
 
-      resolved_path = resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
+      resolved_path = resolve_darwin_library_path(library_path, binary, vendor_lib_dir, source_paths)
       next unless resolved_path
 
       target_path = File.join(vendor_lib_dir, File.basename(library_path))
@@ -86,6 +91,7 @@ def vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
         FileUtils.chmod(0o755, target_path)
       end
 
+      source_paths[target_path] = resolved_path
       queue << target_path
     end
   end
@@ -115,11 +121,15 @@ def patch_darwin_install_names(extension_path, vendor_lib_dir)
   all_binaries.each do |binary|
     darwin_libraries_for(binary).each do |library_path|
       next if darwin_system_library?(library_path)
+      next if darwin_excluded_library?(library_path)
 
       vendored_path = File.join(vendor_lib_dir, File.basename(library_path))
       next unless File.exist?(vendored_path)
 
-      sh "install_name_tool -change #{library_path.shellescape} @rpath/#{File.basename(library_path).shellescape} #{binary.shellescape}"
+      new_path = "@rpath/#{File.basename(library_path)}"
+      next if library_path == new_path
+
+      sh "install_name_tool -change #{library_path.shellescape} #{new_path.shellescape} #{binary.shellescape}"
     end
   end
 end
@@ -136,27 +146,35 @@ def verify_no_missing_darwin_libraries(extension_path, vendor_lib_dir)
   [ extension_path, *Dir.glob(File.join(vendor_lib_dir, "*.dylib")) ].each do |binary|
     darwin_libraries_for(binary).each do |library_path|
       next if darwin_system_library?(library_path)
+      next if darwin_excluded_library?(library_path)
       next if library_path.start_with?("@rpath/") && vendored_names.include?(library_path.delete_prefix("@rpath/"))
-      next if library_path.start_with?("@loader_path/") && resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
+      next if library_path.start_with?("@loader_path/") && resolve_darwin_library_path(library_path, binary, vendor_lib_dir, {})
 
       abort "Unvendored macOS shared library for #{binary}: #{library_path}"
     end
   end
 end
 
-def resolve_darwin_library_path(library_path, binary, vendor_lib_dir)
+def resolve_darwin_library_path(library_path, binary, vendor_lib_dir, source_paths)
   if library_path.start_with?("/")
     return library_path if File.exist?(library_path)
   elsif library_path.start_with?("@loader_path/")
+    source_binary = source_paths.fetch(binary, binary)
+    source_resolved_path = File.expand_path(library_path.delete_prefix("@loader_path/"), File.dirname(source_binary))
+    return source_resolved_path if File.exist?(source_resolved_path)
+
     resolved_path = File.expand_path(library_path.delete_prefix("@loader_path/"), File.dirname(binary))
     return resolved_path if File.exist?(resolved_path)
   elsif library_path.start_with?("@rpath/")
     relative_path = library_path.delete_prefix("@rpath/")
+    source_binary = source_paths.fetch(binary, binary)
 
     darwin_rpaths_for(binary).each do |rpath|
-      resolved_rpath = rpath.sub("@loader_path", File.dirname(binary))
-      resolved_path = File.expand_path(relative_path, resolved_rpath)
-      return resolved_path if File.exist?(resolved_path)
+      [ File.dirname(source_binary), File.dirname(binary) ].each do |loader_path|
+        resolved_rpath = rpath.sub("@loader_path", loader_path)
+        resolved_path = File.expand_path(relative_path, resolved_rpath)
+        return resolved_path if File.exist?(resolved_path)
+      end
     end
 
     vendored_path = File.join(vendor_lib_dir, relative_path)
@@ -189,4 +207,9 @@ end
 
 def darwin_system_library?(library_path)
   PAGE_PRINT_DARWIN_SYSTEM_PREFIXES.any? { |prefix| library_path.start_with?(prefix) }
+end
+
+def darwin_excluded_library?(library_path)
+  basename = File.basename(library_path)
+  PAGE_PRINT_DARWIN_EXCLUDED_LIBRARIES.any? { |name| basename.start_with?(name) }
 end
