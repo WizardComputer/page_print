@@ -37,11 +37,13 @@ jobs:
           docker run --rm -v "$PWD:/work" -w /work ruby:3.0-bullseye bash -lc '
             apt-get update && apt-get install -y --no-install-recommends \
               build-essential \
+              ca-certificates \
               git \
               pkg-config \
               ninja-build \
               patchelf \
               python3-pip \
+              xz-utils \
               libcairo2-dev \
               libexpat1-dev \
               libicu-dev \
