@@ -1,34 +1,15 @@
 # PagePrint
 
-`page_print` is a Ruby gem with a native C extension that renders HTML strings to PDF files using the `plutobook` library.
+`page_print` renders HTML strings to PDF files from Ruby using the `plutobook` library through a native C extension.
 
-## Requirements
-
-- Ruby 3.0+
-- Native gems are published for `x86_64-linux` and `arm64-darwin`.
-- Native gems vendor PlutoBook but compile the small Ruby extension during install so it links against your local Ruby.
-- Source builds on unsupported platforms require PlutoBook development headers and library files.
-
-### Source Build Requirements
-
-On macOS with Homebrew:
-
-```sh
-brew install plutobook pkg-config
-```
-
-If `pkg-config` cannot find `plutobook`, install the gem with explicit include and library paths:
-
-```sh
-gem install page_print -- --with-plutobook-include=/path/to/include --with-plutobook-lib=/path/to/lib
-```
+It exists as a faster, simpler alternative to PDFKit and other `wkhtmltopdf`-based gems. There is no external renderer process to shell out to, and the public Ruby API is intentionally small.
 
 ## Installation
 
 Add PagePrint to your Gemfile:
 
 ```ruby
-gem "page_print", "~> 0.1.2"
+gem "page_print", "~> 0.1.3"
 ```
 
 Or install from RubyGems directly:
@@ -37,122 +18,11 @@ Or install from RubyGems directly:
 gem install page_print
 ```
 
-The native gems bundle PlutoBook and required non-system shared libraries. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled in native gems to keep the bundled dependency set smaller.
-
-## Supported Platforms
-
-| Platform | Install Type |
-|---|---|
-| `x86_64-linux` | Vendored PlutoBook, local Ruby extension build |
-| `arm64-darwin` | Vendored PlutoBook, local Ruby extension build |
-| Other platforms | Source build |
-
-## Local Build
-
-Build and install locally:
-
-```sh
-gem build page_print.gemspec
-gem install ./page_print-*.gem
-```
-
-## Development
-
-1. Install development dependencies:
-
-```sh
-bundle install
-```
-
-2. Compile the native extension into `lib/page_print`:
-
-```sh
-bundle exec rake compile
-```
-
-3. Open an interactive Ruby session against the local checkout:
-
-```sh
-bundle exec irb -Ilib
-```
-
-Then load the gem from the repo and try it:
-
-```ruby
-require "page_print"
-require "tmpdir"
-
-output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
-
-PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)
-```
-
-You can also do a quick one-shot smoke test from the shell:
-
-```sh
-bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
-```
-
-Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
-
-```sh
-bin/console
-```
-
-## Running Tests
-
-Run the test suite only:
-
-```sh
-bundle exec rake test
-```
-
-Or run the default rake task, which compiles the extension and then runs tests:
-
-```sh
-bundle exec rake
-```
-
-## Benchmarking
-
-A local benchmark comparing `page_print` with PDFKit is available:
-
-```sh
-RUNS=30 WARMUPS=3 bundle exec ruby benchmark/pdf_renderers.rb
-```
-
-Measured on 2026-05-30 with Ruby 3.4.7 on Apple Silicon:
-
-| Renderer | Avg wall | P95 wall | Avg CPU | Avg peak RSS | Avg PDF |
-|---|---:|---:|---:|---:|---:|
-| `page_print` | 78.2ms | 89.6ms | 93.4ms | 42.1MB | 33.0KB |
-| PDFKit | 782.2ms | 2127.1ms | 824.8ms | 59.4MB | 27.9KB |
-
-For options and CSV output, see `benchmark/README.md`.
-
-## Building Native Gems
-
-Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
-
-```sh
-bundle exec rake package:linux
-```
-
-Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
-
-```sh
-bundle exec rake package:darwin_arm64
-```
-
-These tasks check out PlutoBook `v0.17.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
-
-Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
-
-The packaging tasks expect PlutoBook's build dependencies to be installed on the build machine, including Meson, Ninja, pkg-config, Cairo, FreeType, HarfBuzz, Fontconfig, Expat, and ICU.
+Native gems are published for `x86_64-linux` and `arm64-darwin`. Other platforms build from source and require PlutoBook development headers and library files.
 
 ## Rails Usage
 
-PagePrint is currently optimized for Rails applications using Propshaft. In Rails, PagePrint installs a default Propshaft-backed resource fetcher and uses the current request URL as the default `base_url`.
+PagePrint is optimized for Rails applications using Propshaft. In Rails, PagePrint installs a default Propshaft-backed resource fetcher and uses the current request URL as the default `base_url`.
 
 Render a PDF from a controller:
 
@@ -245,6 +115,8 @@ PagePrint.configure do |config|
 end
 ```
 
+## Options
+
 Supported keyword options:
 
 - `base_url:` string used to resolve relative URLs in the HTML
@@ -258,8 +130,138 @@ Supported keyword options:
 
 Custom dimensions and margins require `unit:`. Supported units are `:pt`, `:pc`, `:in`, `:cm`, `:mm`, and `:px`.
 
+## Benchmarking
+
+```sh
+RUNS=30 WARMUPS=3 bundle exec ruby benchmark/pdf_renderers.rb
+```
+
+Measured on 2026-05-30 with Ruby 3.4.7 on Apple Silicon:
+
+| Renderer | Avg wall | P95 wall | Avg CPU | Avg peak RSS | Avg PDF |
+|---|---:|---:|---:|---:|---:|
+| `page_print` | 78.2ms | 89.6ms | 93.4ms | 42.1MB | 33.0KB |
+| PDFKit | 782.2ms | 2127.1ms | 824.8ms | 59.4MB | 27.9KB |
+
+For options and CSV output, see `benchmark/README.md`.
+
+## Requirements
+
+- Ruby 3.0+
+- Native gems are published for `x86_64-linux` and `arm64-darwin`.
+- Native gems vendor PlutoBook but compile the small Ruby extension during install so it links against your local Ruby.
+- Source builds on unsupported platforms require PlutoBook development headers and library files.
+
+Supported platforms:
+
+| Platform | Install Type |
+|---|---|
+| `x86_64-linux` | Vendored PlutoBook, local Ruby extension build |
+| `arm64-darwin` | Vendored PlutoBook, local Ruby extension build |
+| Other platforms | Source build |
+
+Source build requirements on macOS with Homebrew:
+
+```sh
+brew install plutobook pkg-config
+```
+
+If `pkg-config` cannot find `plutobook`, install the gem with explicit include and library paths:
+
+```sh
+gem install page_print -- --with-plutobook-include=/path/to/include --with-plutobook-lib=/path/to/lib
+```
+
+Native gems bundle PlutoBook and required non-system shared libraries. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled in native gems to keep the bundled dependency set smaller.
+
 ## Notes
 
 - The extension supports writing to a file path with `html_to_pdf` or returning PDF bytes with `html_to_pdf_string`.
 - JavaScript execution is intentionally unsupported.
 - Native gems disable PlutoBook's optional curl, TurboJPEG, and WebP features.
+
+## Development
+
+Install development dependencies:
+
+```sh
+bundle install
+```
+
+Compile the native extension into `lib/page_print`:
+
+```sh
+bundle exec rake compile
+```
+
+Open an interactive Ruby session against the local checkout:
+
+```sh
+bundle exec irb -Ilib
+```
+
+Then load the gem from the repo and try it:
+
+```ruby
+require "page_print"
+require "tmpdir"
+
+output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
+
+PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)
+```
+
+You can also do a quick one-shot smoke test from the shell:
+
+```sh
+bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
+```
+
+Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
+
+```sh
+bin/console
+```
+
+## Running Tests
+
+Run the test suite only:
+
+```sh
+bundle exec rake test
+```
+
+Or run the default rake task, which compiles the extension and then runs tests:
+
+```sh
+bundle exec rake
+```
+
+## Local Build
+
+Build and install locally:
+
+```sh
+gem build page_print.gemspec
+gem install ./page_print-*.gem
+```
+
+## Building Native Gems
+
+Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
+
+```sh
+bundle exec rake package:linux
+```
+
+Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
+
+```sh
+bundle exec rake package:darwin_arm64
+```
+
+These tasks check out PlutoBook `v0.17.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
+
+Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
+
+The packaging tasks expect PlutoBook's build dependencies to be installed on the build machine, including Meson, Ninja, pkg-config, Cairo, FreeType, HarfBuzz, Fontconfig, Expat, and ICU.
