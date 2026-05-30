@@ -32,44 +32,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4.7"
-          bundler-cache: true
-
-      - name: Install PlutoBook build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            pkg-config \
-            meson \
-            ninja-build \
-            patchelf \
-            libcairo2-dev \
-            libexpat1-dev \
-            libicu-dev \
-            libfreetype6-dev \
-            libfontconfig1-dev \
-            libharfbuzz-dev
-
       - name: Build native Linux gem
-        run: bundle exec rake package:linux
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work ruby:3.0-bullseye bash -lc '
+            apt-get update && apt-get install -y --no-install-recommends \
+              build-essential \
+              git \
+              pkg-config \
+              meson \
+              ninja-build \
+              patchelf \
+              libcairo2-dev \
+              libexpat1-dev \
+              libicu-dev \
+              libfreetype6-dev \
+              libfontconfig1-dev \
+              libharfbuzz-dev && \
+            rm -rf /var/lib/apt/lists/* && \
+            bundle install && \
+            bundle exec rake package:linux
+          '
 
       - name: Verify Linux gem compiles extension on install
         run: |
-          ruby -rrubygems/package -e 'gem_path = Dir["pkg/page_print-*-x86_64-linux.gem"].fetch(0); spec = Gem::Package.new(gem_path).spec; abort "Linux gem must not include precompiled Ruby extension" if spec.files.any? { |file| file == "lib/page_print/page_print.so" }'
-
-      - name: Smoke test native Linux gem
-        run: |
-          gem install pkg/page_print-*-x86_64-linux.gem
-          ruby -e 'require "page_print"; pdf = PagePrint.html_to_pdf_string("<html><body><h1>Hello</h1></body></html>"); abort "bad pdf" unless pdf.start_with?("%PDF"); puts "ok"'
+          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.0-slim ruby -rrubygems/package -e 'gem_path = Dir["/pkg/page_print-*-x86_64-linux.gem"].fetch(0); spec = Gem::Package.new(gem_path).spec; abort "Linux gem must not include precompiled Ruby extension" if spec.files.any? { |file| file == "lib/page_print/page_print.so" }'
 
       - name: Smoke test native Linux gem in clean Ruby image
         run: |
-          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.0-slim bash -lc 'apt-get update && apt-get install -y build-essential && gem install /pkg/page_print-*-x86_64-linux.gem && ruby -e "require \"page_print\"; pdf = PagePrint.html_to_pdf_string(\"<html><body><h1>Hello</h1></body></html>\"); abort \"bad pdf\" unless pdf.start_with?(\"%PDF\"); puts \"ok\""'
-          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.4.7-slim bash -lc 'apt-get update && apt-get install -y build-essential && gem install /pkg/page_print-*-x86_64-linux.gem && ruby -e "require \"page_print\"; pdf = PagePrint.html_to_pdf_string(\"<html><body><h1>Hello</h1></body></html>\"); abort \"bad pdf\" unless pdf.start_with?(\"%PDF\"); puts \"ok\""'
+          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.0-slim bash -lc 'apt-get update && apt-get install -y --no-install-recommends build-essential && gem install /pkg/page_print-*-x86_64-linux.gem || { find /usr/local/bundle/extensions -name mkmf.log -print -exec cat {} \;; exit 1; }; ruby -e "require \"page_print\"; pdf = PagePrint.html_to_pdf_string(\"<html><body><h1>Hello</h1></body></html>\"); abort \"bad pdf\" unless pdf.start_with?(\"%PDF\"); puts \"ok\""'
+          docker run --rm -v "$PWD/pkg:/pkg" ruby:3.4.7-slim bash -lc 'apt-get update && apt-get install -y --no-install-recommends build-essential && gem install /pkg/page_print-*-x86_64-linux.gem || { find /usr/local/bundle/extensions -name mkmf.log -print -exec cat {} \;; exit 1; }; ruby -e "require \"page_print\"; pdf = PagePrint.html_to_pdf_string(\"<html><body><h1>Hello</h1></body></html>\"); abort \"bad pdf\" unless pdf.start_with?(\"%PDF\"); puts \"ok\""'
 
       - uses: actions/upload-artifact@v4
         with:
