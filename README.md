@@ -6,7 +6,7 @@
 
 - Ruby 3.0+
 - Native gems are published for `x86_64-linux` and `arm64-darwin`.
-- The `arm64-darwin` gem vendors PlutoBook but compiles the small Ruby extension during install so it links against your local Ruby.
+- Native gems vendor PlutoBook but compile the small Ruby extension during install so it links against your local Ruby.
 - Source builds on unsupported platforms require PlutoBook development headers and library files.
 
 ### Source Build Requirements
@@ -43,7 +43,7 @@ The native gems bundle PlutoBook and required non-system shared libraries. Optio
 
 | Platform | Install Type |
 |---|---|
-| `x86_64-linux` | Native gem |
+| `x86_64-linux` | Vendored PlutoBook, local Ruby extension build |
 | `arm64-darwin` | Vendored PlutoBook, local Ruby extension build |
 | Other platforms | Source build |
 
@@ -127,7 +127,7 @@ Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
 bundle exec rake package:darwin_arm64
 ```
 
-These tasks check out PlutoBook `v0.17.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. The Linux package includes a precompiled Ruby extension. The macOS package compiles the Ruby extension during gem install to avoid hardcoding the build machine's Ruby path.
+These tasks check out PlutoBook `v0.17.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
 
 Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
 

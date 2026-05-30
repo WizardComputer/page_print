@@ -20,7 +20,7 @@ PAGE_PRINT_LINUX_SYSTEM_LIBRARIES = %w[
 ].freeze
 
 namespace :package do
-  desc "Build a precompiled Linux gem with vendored PlutoBook"
+  desc "Build a Linux gem with vendored PlutoBook"
   task :linux do
     abort "package:linux currently supports x86_64 Linux only" unless linux_x86_64?
 
@@ -56,9 +56,10 @@ namespace :package do
     vendor_linux_shared_libraries(extension_path, vendor_lib_dir)
     patch_linux_rpaths(extension_path, vendor_lib_dir)
     verify_no_missing_linux_libraries(extension_path, vendor_lib_dir)
+    FileUtils.rm_f(extension_path)
 
     Bundler.with_unbundled_env do
-      sh({ "PAGE_PRINT_PRECOMPILED" => "1", "PAGE_PRINT_PRECOMPILED_PLATFORM" => PAGE_PRINT_LINUX_PLATFORM }, "gem build page_print.gemspec")
+      sh({ "PAGE_PRINT_VENDOR_ONLY" => "1", "PAGE_PRINT_PRECOMPILED_PLATFORM" => PAGE_PRINT_LINUX_PLATFORM }, "gem build page_print.gemspec")
     end
 
     gem_path = Dir.glob(File.join(root, "page_print-*-#{PAGE_PRINT_LINUX_PLATFORM}.gem")).max_by { |path| File.mtime(path) }
