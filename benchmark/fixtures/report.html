@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>PagePrint Benchmark Report</title>
+    <style>
+      @page { size: A4; margin: 18mm; }
+      * { box-sizing: border-box; }
+      body {
+        color: #18212f;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      h1 { font-size: 30px; margin: 0 0 6px; }
+      h2 { border-bottom: 1px solid #d7dde8; font-size: 18px; margin: 28px 0 12px; padding-bottom: 6px; }
+      table { border-collapse: collapse; margin-top: 12px; width: 100%; }
+      th, td { border: 1px solid #d7dde8; padding: 7px 8px; text-align: left; }
+      th { background: #eef3fb; }
+      .summary { background: #f5f8fc; border: 1px solid #d7dde8; border-radius: 10px; display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); margin: 20px 0; padding: 14px; }
+      .metric { background: white; border-radius: 8px; padding: 12px; }
+      .metric strong { display: block; font-size: 22px; }
+      .section { break-inside: avoid; }
+      .bar { background: #e8edf5; border-radius: 999px; height: 10px; overflow: hidden; }
+      .bar span { background: #3366cc; display: block; height: 100%; }
+      .note { color: #5c6b80; }
+    </style>
+  </head>
+  <body>
+    <h1>Quarterly Operations Report</h1>
+    <p class="note">Synthetic benchmark fixture with tables, repeated sections, CSS, and page breaks.</p>
+
+    <div class="summary">
+      <div class="metric"><span>Revenue</span><strong>$2.48M</strong><span class="note">+12.4% quarter over quarter</span></div>
+      <div class="metric"><span>Orders</span><strong>18,420</strong><span class="note">Across 28 regions</span></div>
+      <div class="metric"><span>Fulfillment</span><strong>97.8%</strong><span class="note">Within service target</span></div>
+    </div>
+
+    <div class="section">
+      <h2>Regional Performance</h2>
+      <table>
+        <thead>
+          <tr><th>Region</th><th>Orders</th><th>Revenue</th><th>Return Rate</th><th>Capacity</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>North America</td><td>6,842</td><td>$941,200</td><td>2.1%</td><td><div class="bar"><span style="width: 92%"></span></div></td></tr>
+          <tr><td>Europe</td><td>5,108</td><td>$704,420</td><td>1.8%</td><td><div class="bar"><span style="width: 84%"></span></div></td></tr>
+          <tr><td>Asia Pacific</td><td>4,771</td><td>$612,890</td><td>2.7%</td><td><div class="bar"><span style="width: 76%"></span></div></td></tr>
+          <tr><td>Latin America</td><td>1,122</td><td>$149,300</td><td>3.0%</td><td><div class="bar"><span style="width: 68%"></span></div></td></tr>
+          <tr><td>Middle East</td><td>577</td><td>$72,840</td><td>1.5%</td><td><div class="bar"><span style="width: 61%"></span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Executive Notes</h2>
+      <p>Demand remained resilient during the quarter, with repeat customer activity offsetting softer acquisition in two paid channels. Logistics costs improved after carrier renegotiation, while packaging costs remained flat despite volume growth.</p>
+      <p>Support volume increased during the first month of the period and normalized after changes to delivery notification copy. The next quarter focuses on reducing manual review queues and improving international return routing.</p>
+    </div>
+
+    <h2>Account Detail</h2>
+    <table>
+      <thead>
+        <tr><th>Account</th><th>Status</th><th>Invoices</th><th>Outstanding</th><th>Last Activity</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Acme Logistics</td><td>Current</td><td>42</td><td>$0</td><td>2026-05-02</td></tr>
+        <tr><td>Blue Harbor Ltd</td><td>Current</td><td>31</td><td>$1,240</td><td>2026-05-04</td></tr>
+        <tr><td>Canyon Supply</td><td>Review</td><td>18</td><td>$8,923</td><td>2026-05-08</td></tr>
+        <tr><td>Delta Retail Group</td><td>Current</td><td>63</td><td>$0</td><td>2026-05-10</td></tr>
+        <tr><td>Evergreen Market</td><td>Current</td><td>27</td><td>$384</td><td>2026-05-12</td></tr>
+        <tr><td>Fjord Outdoor</td><td>Current</td><td>14</td><td>$0</td><td>2026-05-13</td></tr>
+        <tr><td>Granite Goods</td><td>Review</td><td>22</td><td>$2,780</td><td>2026-05-14</td></tr>
+        <tr><td>Hudson Home</td><td>Current</td><td>36</td><td>$0</td><td>2026-05-15</td></tr>
+        <tr><td>Indigo Office</td><td>Current</td><td>11</td><td>$920</td><td>2026-05-16</td></tr>
+        <tr><td>Juniper Studio</td><td>Current</td><td>48</td><td>$0</td><td>2026-05-17</td></tr>
+        <tr><td>Kestrel Parts</td><td>Current</td><td>25</td><td>$0</td><td>2026-05-18</td></tr>
+        <tr><td>Lagoon Apparel</td><td>Review</td><td>19</td><td>$5,310</td><td>2026-05-19</td></tr>
+        <tr><td>Maple Medical</td><td>Current</td><td>57</td><td>$0</td><td>2026-05-20</td></tr>
+        <tr><td>Northstar Foods</td><td>Current</td><td>29</td><td>$650</td><td>2026-05-21</td></tr>
+        <tr><td>Oak & Iron</td><td>Current</td><td>33</td><td>$0</td><td>2026-05-22</td></tr>
+        <tr><td>Prairie Works</td><td>Current</td><td>17</td><td>$0</td><td>2026-05-23</td></tr>
+        <tr><td>Quartz Systems</td><td>Current</td><td>44</td><td>$1,100</td><td>2026-05-24</td></tr>
+        <tr><td>Riverbend Co</td><td>Current</td><td>21</td><td>$0</td><td>2026-05-25</td></tr>
+        <tr><td>Summit Textiles</td><td>Review</td><td>16</td><td>$3,920</td><td>2026-05-26</td></tr>
+        <tr><td>Timberline Tools</td><td>Current</td><td>38</td><td>$0</td><td>2026-05-27</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

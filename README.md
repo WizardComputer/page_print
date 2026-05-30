@@ -113,6 +113,23 @@ Or run the default rake task, which compiles the extension and then runs tests:
 bundle exec rake
 ```
 
+## Benchmarking
+
+A local benchmark comparing `page_print` with PDFKit is available:
+
+```sh
+RUNS=30 WARMUPS=3 bundle exec ruby benchmark/pdf_renderers.rb
+```
+
+Measured on 2026-05-30 with Ruby 3.4.7 on Apple Silicon:
+
+| Renderer | Avg wall | P95 wall | Avg CPU | Avg peak RSS | Avg PDF |
+|---|---:|---:|---:|---:|---:|
+| `page_print` | 78.2ms | 89.6ms | 93.4ms | 42.1MB | 33.0KB |
+| PDFKit | 782.2ms | 2127.1ms | 824.8ms | 59.4MB | 27.9KB |
+
+For options and CSV output, see `benchmark/README.md`.
+
 ## Building Native Gems
 
 Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
