@@ -39,9 +39,9 @@ jobs:
               build-essential \
               git \
               pkg-config \
-              meson \
               ninja-build \
               patchelf \
+              python3-pip \
               libcairo2-dev \
               libexpat1-dev \
               libicu-dev \
@@ -49,6 +49,7 @@ jobs:
               libfontconfig1-dev \
               libharfbuzz-dev && \
             rm -rf /var/lib/apt/lists/* && \
+            python3 -m pip install meson==1.3.2 && \
             gem install bundler:2.4.22 && \
             bundle install && \
             bundle exec rake package:linux
