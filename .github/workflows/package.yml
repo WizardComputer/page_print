@@ -49,6 +49,7 @@ jobs:
               libfontconfig1-dev \
               libharfbuzz-dev && \
             rm -rf /var/lib/apt/lists/* && \
+            gem install bundler:2.4.22 && \
             bundle install && \
             bundle exec rake package:linux
           '
