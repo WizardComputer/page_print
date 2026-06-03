@@ -49,6 +49,8 @@ namespace :package do
     vendor_lib_dir = File.join(vendor_dir, "lib")
     vendor_darwin_shared_libraries(extension_path, vendor_lib_dir)
     patch_darwin_install_names(extension_path, vendor_lib_dir)
+    sign_darwin_binaries(extension_path, vendor_lib_dir)
+    verify_darwin_code_signatures(extension_path, vendor_lib_dir)
     verify_no_missing_darwin_libraries(extension_path, vendor_lib_dir)
     FileUtils.rm_f(extension_path)
 
@@ -139,6 +141,18 @@ def add_darwin_rpath(binary, rpath)
   return if darwin_rpaths_for(binary).include?(rpath)
 
   sh "install_name_tool -add_rpath #{rpath.shellescape} #{binary.shellescape}"
+end
+
+def sign_darwin_binaries(extension_path, vendor_lib_dir)
+  [extension_path, *Dir.glob(File.join(vendor_lib_dir, "*.dylib"))].each do |binary|
+    sh "codesign --force --sign - #{binary.shellescape}"
+  end
+end
+
+def verify_darwin_code_signatures(extension_path, vendor_lib_dir)
+  [extension_path, *Dir.glob(File.join(vendor_lib_dir, "*.dylib"))].each do |binary|
+    sh "codesign --verify --strict #{binary.shellescape}"
+  end
 end
 
 def verify_no_missing_darwin_libraries(extension_path, vendor_lib_dir)
