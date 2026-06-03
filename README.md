@@ -1,5 +1,9 @@
 # PagePrint
 
+> [!IMPORTANT]
+> PagePrint is not production-ready yet. The gem is still in active testing, especially around native packaging and platform compatibility.
+
+
 `page_print` renders HTML strings to PDF files from Ruby using the `plutobook` library through a native C extension.
 
 It exists as a faster, simpler alternative to PDFKit and other `wkhtmltopdf`-based gems. There is no external renderer process to shell out to, and the public Ruby API is intentionally small.
