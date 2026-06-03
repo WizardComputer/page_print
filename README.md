@@ -13,7 +13,7 @@ It exists as a faster, simpler alternative to PDFKit and other `wkhtmltopdf`-bas
 Add PagePrint to your Gemfile:
 
 ```ruby
-gem "page_print", "~> 0.1.3"
+gem "page_print", "~> 0.1.4"
 ```
 
 Or install from RubyGems directly:
