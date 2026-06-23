@@ -153,7 +153,7 @@ For options and CSV output, see `benchmark/README.md`.
 
 ## Requirements
 
-- Ruby 3.0+
+- Ruby 3.2+
 - Native gems are published for `x86_64-linux` and `arm64-darwin`.
 - Native gems vendor PlutoBook but compile the small Ruby extension during install so it links against your local Ruby.
 - Source builds on unsupported platforms require PlutoBook development headers and library files.
