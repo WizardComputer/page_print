@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -49,6 +51,7 @@ jobs:
             --prefix="$PWD/tmp/plutobook-ci-install" \
             --libdir=lib \
             --buildtype=release \
+            --force-fallback-for=harfbuzz \
             -Dcurl=disabled \
             -Dturbojpeg=disabled \
             -Dwebp=disabled \
