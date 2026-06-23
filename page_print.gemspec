@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = 'A Ruby gem with a native extension that renders HTML strings to PDF files via the plutobook C library.'
   spec.homepage = 'https://github.com/WizardComputer/page_print'
   spec.license = 'MIT'
-  spec.required_ruby_version = '>= 3.0'
+  spec.required_ruby_version = '>= 3.2'
 
   precompiled = ENV['PAGE_PRINT_PRECOMPILED'] == '1'
   vendor_only = ENV['PAGE_PRINT_VENDOR_ONLY'] == '1'
