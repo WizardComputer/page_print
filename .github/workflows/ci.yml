@@ -10,6 +10,11 @@ jobs:
   test:
     runs-on: ubuntu-22.04
 
+    env:
+      PAGE_PRINT_PLUTOBOOK_PREFIX: ${{ github.workspace }}/tmp/plutobook-ci-install
+      PKG_CONFIG_PATH: ${{ github.workspace }}/tmp/plutobook-ci-install/lib/pkgconfig
+      LD_LIBRARY_PATH: ${{ github.workspace }}/tmp/plutobook-ci-install/lib
+
     strategy:
       fail-fast: false
       matrix:
@@ -65,7 +70,8 @@ jobs:
           bundler-cache: true
 
       - name: Run tests
-        env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/tmp/plutobook-ci-install/lib/pkgconfig
-          LD_LIBRARY_PATH: ${{ github.workspace }}/tmp/plutobook-ci-install/lib
-        run: bundle exec rake
+        run: |
+          bundle exec rake compile -- \
+            --with-plutobook-include="$PAGE_PRINT_PLUTOBOOK_PREFIX/include" \
+            --with-plutobook-lib="$PAGE_PRINT_PLUTOBOOK_PREFIX/lib"
+          bundle exec rake test
