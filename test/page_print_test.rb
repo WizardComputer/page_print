@@ -454,6 +454,20 @@ class PagePrintTest < Minitest::Test
     assert_equal 'resource_fetcher result content must be a String', error.message
   end
 
+  def test_html_to_pdf_string_rejects_resource_fetcher_content_larger_than_uint_max
+    html = '<html><head><link rel="stylesheet" href="custom:style"></head><body></body></html>'
+    content = oversized_string(2**32)
+
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string(
+        html,
+        resource_fetcher: ->(_url) { { content: content, mime_type: 'text/css' } }
+      )
+    end
+
+    assert_equal 'resource_fetcher result content is too large', error.message
+  end
+
   def test_html_to_pdf_string_requires_resource_fetcher_mime_type_to_be_a_string
     error = assert_raises(TypeError) do
       PagePrint.html_to_pdf_string(
@@ -516,6 +530,16 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'html must not be empty', error.message
+  end
+
+  def test_html_to_pdf_string_rejects_html_larger_than_int_max
+    html = oversized_string(2**31)
+
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf_string(html)
+    end
+
+    assert_equal 'html is too large', error.message
   end
 
   def test_html_to_pdf_string_rejects_invalid_options
@@ -601,6 +625,22 @@ class PagePrintTest < Minitest::Test
     assert_equal 'page_size must be a Symbol or Hash', error.message
   end
 
+  def test_html_to_pdf_requires_custom_page_size_width
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { height: 150, unit: :mm })
+    end
+
+    assert_equal 'page_size requires :width', error.message
+  end
+
+  def test_html_to_pdf_requires_custom_page_size_height
+    error = assert_raises(ArgumentError) do
+      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, unit: :mm })
+    end
+
+    assert_equal 'page_size requires :height', error.message
+  end
+
   def test_html_to_pdf_requires_custom_page_size_unit
     error = assert_raises(ArgumentError) do
       PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150 })
@@ -682,6 +722,12 @@ class PagePrintTest < Minitest::Test
   end
 
   private
+    def oversized_string(byte_size)
+      'x' * byte_size
+    rescue NoMemoryError
+      skip 'cannot allocate oversized string for this test'
+    end
+
     def fake_rails(public_path)
       Struct.new(:public_path).new(public_path)
     end
