@@ -48,6 +48,20 @@ class PagePrintTest < Minitest::Test
     assert_nil fetcher.call('http://example.com/images/logo.png')
   end
 
+  def test_rails_resource_fetcher_rejects_path_traversal_outside_public_path
+    Dir.mktmpdir do |dir|
+      public_dir = File.join(dir, 'public')
+      nested_assets_dir = File.join(public_dir, 'assets', 'nested')
+      FileUtils.mkdir_p(nested_assets_dir)
+      File.binwrite(File.join(dir, 'secret.txt'), 'outside public')
+
+      fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(public_dir))
+
+      assert_nil fetcher.call('http://example.com/assets/../../secret.txt')
+      assert_nil fetcher.call('http://example.com/assets/nested/../../../secret.txt')
+    end
+  end
+
   def test_rails_resource_fetcher_uses_propshaft_load_path_for_digested_assets
     asset = Struct.new(:logical_path).new('pdf.css')
     load_path = Class.new do
