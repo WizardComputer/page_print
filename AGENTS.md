@@ -70,7 +70,7 @@ Use `bin/console` for a local development console. It compiles the extension bef
 ## Native Extension Notes
 
 - `ext/page_print/extconf.rb` uses `mkmf`, `pkg_config('plutobook')`, and `dir_config('plutobook')`.
-- The extension currently supports keyword options for `base_url`, `page_size`, `margins`, and `media`.
+- The extension currently supports keyword options for `base_url`, `page_size`, `margins`, `media`, `resource_fetcher`, and `metadata`.
 - Keep accepted option values synchronized across `README.md`, tests, and `ext/page_print/page_print.c`.
 
 ## Verification

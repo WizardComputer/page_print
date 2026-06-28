@@ -487,23 +487,26 @@ static plutobook_resource_data_t *pageprint_fetch_resource(void *closure, const 
     pageprint_resource_fetch_args_t args;
     int state;
 
-    args.fetcher = fetcher;
-    args.url = url;
-    args.resource = NULL;
+    if (!NIL_P(fetcher->object)) {
+        args.fetcher = fetcher;
+        args.url = url;
+        args.resource = NULL;
 
-    state = (int)(intptr_t)rb_thread_call_with_gvl(pageprint_call_resource_fetcher_with_gvl, &args);
+        state = (int)(intptr_t)rb_thread_call_with_gvl(pageprint_call_resource_fetcher_with_gvl, &args);
 
-    if (state) {
-        fetcher->state = state;
-        plutobook_set_error_message("failed to fetch URL '%s'", url);
-        return NULL;
+        if (state) {
+            fetcher->state = state;
+            plutobook_set_error_message("failed to fetch URL '%s'", url);
+            return NULL;
+        }
+
+        if (args.resource) {
+            return args.resource;
+        }
     }
 
-    if (args.resource) {
-        return args.resource;
-    }
-
-    return plutobook_fetch_url(url);
+    plutobook_set_error_message("network fetch disabled for URL '%s'", url);
+    return NULL;
 }
 
 static pageprint_options_t pageprint_options_from_value(VALUE options)
@@ -629,9 +632,7 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
     resource_fetcher->object = pageprint_options.resource_fetcher;
     resource_fetcher->state = 0;
 
-    if (!NIL_P(resource_fetcher->object)) {
-        plutobook_set_custom_resource_fetcher(book, pageprint_fetch_resource, resource_fetcher);
-    }
+    plutobook_set_custom_resource_fetcher(book, pageprint_fetch_resource, resource_fetcher);
 
     /* 2. Load HTML */
     plutobook_clear_error_message();

@@ -443,6 +443,32 @@ class PagePrintTest < Minitest::Test
     assert_equal 'fetch failed', error.message
   end
 
+  def test_html_to_pdf_string_denies_network_fetch_when_resource_fetcher_returns_nil
+    html = '<html><head><link rel="stylesheet" href="http://example.com/style.css"></head><body></body></html>'
+    urls = []
+
+    pdf = PagePrint.html_to_pdf_string(
+      html,
+      resource_fetcher: ->(url) {
+        urls << url
+        nil
+      }
+    )
+
+    assert_includes urls, 'http://example.com/style.css'
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
+  def test_html_to_pdf_string_denies_network_fetch_without_resource_fetcher
+    html = '<html><head><link rel="stylesheet" href="http://example.com/style.css"></head><body></body></html>'
+
+    pdf = PagePrint.html_to_pdf_string(html)
+
+    assert_operator pdf.bytesize, :>, 0
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
   def test_html_to_pdf_string_requires_html_to_be_a_string
     error = assert_raises(TypeError) do
       PagePrint.html_to_pdf_string(123)

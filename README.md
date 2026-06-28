@@ -130,6 +130,8 @@ Supported keyword options:
 - `resource_fetcher:` callable that receives a URL and returns `nil` or `{ content:, mime_type:, text_encoding: nil }`
 - `metadata:` hash with `:title`, `:author`, `:subject`, `:keywords`, `:creation_date`, or `:modification_date`
 
+Unresolved URLs are not fetched over the network. Provide assets through `resource_fetcher`, or return `nil` to skip a URL.
+
 `metadata[:creation_date]` and `metadata[:modification_date]` should be ISO-8601 strings, for example `2026-05-10T12:00:00Z`.
 
 Custom dimensions and margins require `unit:`. Supported units are `:pt`, `:pc`, `:in`, `:cm`, `:mm`, and `:px`.
