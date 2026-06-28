@@ -48,7 +48,7 @@ typedef struct {
     plutobook_page_size_t page_size;
     plutobook_page_margins_t margins;
     plutobook_media_type_t media;
-    const char *base_url;
+    VALUE base_url;
     VALUE resource_fetcher;
     VALUE metadata;
 } pageprint_options_t;
@@ -521,7 +521,7 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
     result.page_size = PLUTOBOOK_PAGE_SIZE_A4;
     result.margins = PLUTOBOOK_PAGE_MARGINS_NORMAL;
     result.media = PLUTOBOOK_MEDIA_TYPE_PRINT;
-    result.base_url = "";
+    result.base_url = Qnil;
     result.resource_fetcher = Qnil;
     result.metadata = Qnil;
 
@@ -556,7 +556,7 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
             rb_raise(rb_eTypeError, "base_url must be a String or nil");
         }
 
-        result.base_url = StringValueCStr(base_url_value);
+        result.base_url = base_url_value;
     }
 
     if (page_size_value != Qundef) {
@@ -596,6 +596,7 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
     pageprint_options_t pageprint_options;
 
     const char *html_str;
+    const char *base_url_str;
     long html_len;
 
     plutobook_t *book;
@@ -635,13 +636,24 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
     /* 2. Load HTML */
     plutobook_clear_error_message();
 
+    base_url_str = "";
+    if (!NIL_P(pageprint_options.base_url)) {
+        base_url_str = StringValueCStr(pageprint_options.base_url);
+    }
+
     load_args.book = book;
     load_args.html = html_str;
     load_args.length = (int)html_len;
     load_args.user_style = "";
     load_args.user_script = "";
-    load_args.base_url = pageprint_options.base_url;
+    load_args.base_url = base_url_str;
     load_args.ok = 0;
+
+    RB_GC_GUARD(html);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(pageprint_options.base_url);
+    RB_GC_GUARD(pageprint_options.resource_fetcher);
+    RB_GC_GUARD(pageprint_options.metadata);
 
     rb_thread_call_without_gvl(
         pageprint_load_html_without_gvl,
