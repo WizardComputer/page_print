@@ -746,6 +746,11 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     write_args.path = path_str;
     write_args.ok = 0;
 
+    RB_GC_GUARD(html);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(resource_fetcher.object);
+    RB_GC_GUARD(path);
+
     rb_thread_call_without_gvl(
         pageprint_write_pdf_without_gvl,
         &write_args,
@@ -762,10 +767,6 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     if (!write_args.ok) {
         pageprint_raise_plutobook_error_with_path(rb_eRuntimeError, "failed to write PDF to", path_str);
     }
-
-    RB_GC_GUARD(resource_fetcher.object);
-    RB_GC_GUARD(options);
-    RB_GC_GUARD(path);
 
     return Qtrue;
 }
@@ -795,6 +796,11 @@ static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
     write_args.output = &output;
     write_args.ok = 0;
 
+    RB_GC_GUARD(html);
+    RB_GC_GUARD(options);
+    RB_GC_GUARD(resource_fetcher.object);
+    RB_GC_GUARD(output.output);
+
     rb_thread_call_without_gvl(
         pageprint_write_pdf_stream_without_gvl,
         &write_args,
@@ -815,10 +821,6 @@ static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
     if (!write_args.ok) {
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to write PDF to string");
     }
-
-    RB_GC_GUARD(resource_fetcher.object);
-    RB_GC_GUARD(options);
-    RB_GC_GUARD(output.output);
 
     return output.output;
 }
