@@ -97,6 +97,11 @@ typedef struct {
     int ok;
 } pageprint_write_pdf_stream_args_t;
 
+typedef struct {
+    plutobook_t *book;
+    VALUE metadata;
+} pageprint_apply_metadata_args_t;
+
 static VALUE pageprint_append_pdf_string(VALUE value);
 static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const char *data, unsigned int length);
 static plutobook_resource_data_t *pageprint_fetch_resource(void *closure, const char *url);
@@ -366,6 +371,15 @@ static void pageprint_apply_metadata(plutobook_t *book, VALUE metadata)
     pageprint_set_metadata_value(book, metadata, id_keywords, PLUTOBOOK_PDF_METADATA_KEYWORDS);
     pageprint_set_metadata_value(book, metadata, id_creation_date, PLUTOBOOK_PDF_METADATA_CREATION_DATE);
     pageprint_set_metadata_value(book, metadata, id_modification_date, PLUTOBOOK_PDF_METADATA_MODIFICATION_DATE);
+}
+
+static VALUE pageprint_apply_metadata_with_gvl(VALUE ptr)
+{
+    pageprint_apply_metadata_args_t *args = (pageprint_apply_metadata_args_t *)ptr;
+
+    pageprint_apply_metadata(args->book, args->metadata);
+
+    return Qnil;
 }
 
 static void *pageprint_load_html_without_gvl(void *ptr)
@@ -678,7 +692,20 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
         rb_jump_tag(resource_fetcher->state);
     }
 
-    pageprint_apply_metadata(book, pageprint_options.metadata);
+    {
+        pageprint_apply_metadata_args_t metadata_args;
+        int metadata_state = 0;
+
+        metadata_args.book = book;
+        metadata_args.metadata = pageprint_options.metadata;
+
+        rb_protect(pageprint_apply_metadata_with_gvl, (VALUE)&metadata_args, &metadata_state);
+
+        if (metadata_state) {
+            plutobook_destroy(book);
+            rb_jump_tag(metadata_state);
+        }
+    }
 
     return book;
 }

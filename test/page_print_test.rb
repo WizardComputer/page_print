@@ -360,6 +360,25 @@ class PagePrintTest < Minitest::Test
     assert_equal 'metadata values must be Strings or nil', error.message
   end
 
+  def test_html_to_pdf_string_reraises_metadata_errors_after_html_load
+    metadata = { title: 'Test PDF' }
+    html = '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>'
+
+    assert_raises(TypeError) do
+      PagePrint.html_to_pdf_string(
+        html,
+        metadata: metadata,
+        resource_fetcher: lambda { |_url|
+          metadata[:title] = 123
+          { content: 'body {}', mime_type: 'text/css' }
+        }
+      )
+    end
+
+    pdf = PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>')
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  end
+
   def test_html_to_pdf_string_uses_resource_fetcher
     urls = []
     pdf = PagePrint.html_to_pdf_string(
