@@ -7,7 +7,66 @@ on:
   pull_request:
 
 jobs:
+  build-plutobook:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            pkg-config \
+            ninja-build \
+            pipx \
+            python3-pip \
+            libcairo2-dev \
+            libexpat1-dev \
+            libicu-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev
+          pipx install meson==1.3.2
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Cache PlutoBook install
+        uses: actions/cache@v4
+        id: plutobook-cache
+        with:
+          path: tmp/plutobook-ci-install
+          key: plutobook-v0.17.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            plutobook-v0.17.0-${{ runner.os }}-
+
+      - name: Build PlutoBook
+        if: steps.plutobook-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v0.17.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
+          meson setup tmp/plutobook-ci-build tmp/plutobook-ci-src \
+            --prefix="$PWD/tmp/plutobook-ci-install" \
+            --libdir=lib \
+            --buildtype=release \
+            --force-fallback-for=harfbuzz \
+            -Dcurl=disabled \
+            -Dturbojpeg=disabled \
+            -Dwebp=disabled \
+            -Dtools=disabled \
+            -Dtests=disabled \
+            -Dexamples=disabled
+          meson compile -C tmp/plutobook-ci-build
+          meson install -C tmp/plutobook-ci-build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plutobook-ci-install
+          path: tmp/plutobook-ci-install
+          retention-days: 1
+
   test:
+    needs: build-plutobook
     runs-on: ubuntu-22.04
 
     env:
@@ -27,42 +86,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install native dependencies
+      - name: Install test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
-            git \
-            pkg-config \
-            ninja-build \
-            pipx \
-            python3-pip \
-            poppler-utils \
-            libcairo2-dev \
-            libexpat1-dev \
-            libicu-dev \
-            libfreetype6-dev \
-            libfontconfig1-dev \
-            libharfbuzz-dev
-          pipx install meson==1.3.2
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            poppler-utils
 
-      - name: Build PlutoBook
-        run: |
-          git clone --depth 1 --branch v0.17.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
-          meson setup tmp/plutobook-ci-build tmp/plutobook-ci-src \
-            --prefix="$PWD/tmp/plutobook-ci-install" \
-            --libdir=lib \
-            --buildtype=release \
-            --force-fallback-for=harfbuzz \
-            -Dcurl=disabled \
-            -Dturbojpeg=disabled \
-            -Dwebp=disabled \
-            -Dtools=disabled \
-            -Dtests=disabled \
-            -Dexamples=disabled
-          meson compile -C tmp/plutobook-ci-build
-          meson install -C tmp/plutobook-ci-build
+      - uses: actions/download-artifact@v4
+        with:
+          name: plutobook-ci-install
+          path: tmp/plutobook-ci-install
 
       - uses: ruby/setup-ruby@v1
         with:
