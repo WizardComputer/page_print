@@ -4,7 +4,7 @@ require "rbconfig"
 require "rubygems/package_task"
 require "shellwords"
 
-PAGE_PRINT_PLUTOBOOK_VERSION = "v0.17.0" unless defined?(PAGE_PRINT_PLUTOBOOK_VERSION)
+PAGE_PRINT_PLUTOBOOK_VERSION = "v0.18.0" unless defined?(PAGE_PRINT_PLUTOBOOK_VERSION)
 PAGE_PRINT_LINUX_PLATFORM = "x86_64-linux"
 PAGE_PRINT_LINUX_SYSTEM_LIBRARIES = %w[
   ld-linux

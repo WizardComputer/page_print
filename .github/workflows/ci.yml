@@ -37,14 +37,14 @@ jobs:
         id: plutobook-cache
         with:
           path: tmp/plutobook-ci-install
-          key: plutobook-v0.17.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: plutobook-v0.18.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            plutobook-v0.17.0-${{ runner.os }}-
+            plutobook-v0.18.0-${{ runner.os }}-
 
       - name: Build PlutoBook
         if: steps.plutobook-cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch v0.17.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
+          git clone --depth 1 --branch v0.18.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
           meson setup tmp/plutobook-ci-build tmp/plutobook-ci-src \
             --prefix="$PWD/tmp/plutobook-ci-install" \
             --libdir=lib \
@@ -129,14 +129,14 @@ jobs:
         id: plutobook-cache-macos
         with:
           path: tmp/plutobook-ci-install
-          key: plutobook-v0.17.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: plutobook-v0.18.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            plutobook-v0.17.0-${{ runner.os }}-
+            plutobook-v0.18.0-${{ runner.os }}-
 
       - name: Build PlutoBook
         if: steps.plutobook-cache-macos.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch v0.17.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
+          git clone --depth 1 --branch v0.18.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-ci-src
           meson setup tmp/plutobook-ci-build tmp/plutobook-ci-src \
             --prefix="$PWD/tmp/plutobook-ci-install" \
             --libdir=lib \
