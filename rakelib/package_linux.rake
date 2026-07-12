@@ -38,7 +38,7 @@ namespace :package do
     FileUtils.mkdir_p(File.join(root, "pkg"))
 
     sh "git clone --depth 1 --branch #{PAGE_PRINT_PLUTOBOOK_VERSION.shellescape} https://github.com/plutoprint/plutobook.git #{plutobook_source_dir.shellescape}"
-    sh "meson setup #{plutobook_build_dir.shellescape} #{plutobook_source_dir.shellescape} --prefix=#{plutobook_install_dir.shellescape} --libdir=lib --buildtype=release --force-fallback-for=harfbuzz -Dcurl=disabled -Dturbojpeg=disabled -Dwebp=disabled -Dtools=disabled -Dtests=disabled -Dexamples=disabled"
+    sh "meson setup #{plutobook_build_dir.shellescape} #{plutobook_source_dir.shellescape} --prefix=#{plutobook_install_dir.shellescape} --libdir=lib --buildtype=release -Dcpp_args=\"['-include', 'memory_resource']\" --force-fallback-for=harfbuzz -Dcurl=disabled -Dturbojpeg=disabled -Dwebp=disabled -Dtools=disabled -Dtests=disabled -Dexamples=disabled"
     sh "meson compile -C #{plutobook_build_dir.shellescape}"
     sh "meson install -C #{plutobook_build_dir.shellescape}"
 
