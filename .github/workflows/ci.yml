@@ -49,6 +49,7 @@ jobs:
             --prefix="$PWD/tmp/plutobook-ci-install" \
             --libdir=lib \
             --buildtype=release \
+            -Dcpp_args="['-include', 'memory_resource']" \
             --force-fallback-for=harfbuzz \
             -Dcurl=disabled \
             -Dturbojpeg=disabled \
