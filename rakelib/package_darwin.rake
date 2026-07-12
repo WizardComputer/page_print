@@ -3,7 +3,7 @@ require "bundler"
 require "rbconfig"
 require "shellwords"
 
-PAGE_PRINT_PLUTOBOOK_VERSION = "v0.17.0" unless defined?(PAGE_PRINT_PLUTOBOOK_VERSION)
+PAGE_PRINT_PLUTOBOOK_VERSION = "v0.18.0" unless defined?(PAGE_PRINT_PLUTOBOOK_VERSION)
 PAGE_PRINT_DARWIN_PLATFORM = "arm64-darwin"
 PAGE_PRINT_DARWIN_SYSTEM_PREFIXES = [
   "/System/Library/",
