@@ -118,3 +118,136 @@ jobs:
         with:
           name: page_print-darwin-arm64-gem
           path: pkg/page_print-*-arm64-darwin.gem
+
+  publish:
+    name: Publish
+    needs: [source, linux, darwin-arm64]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4.7"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: gems
+          pattern: page_print-*-gem
+          merge-multiple: true
+
+      - name: Expect exact gem artifacts for tag version
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          expected=(
+            "page_print-${version}.gem"
+            "page_print-${version}-x86_64-linux.gem"
+            "page_print-${version}-arm64-darwin.gem"
+          )
+
+          # download-artifact may nest files; flatten expected gems to gems/
+          mkdir -p gems
+          for name in "${expected[@]}"; do
+            if [[ ! -f "gems/${name}" ]]; then
+              match="$(find gems -type f -name "${name}" | head -n 1 || true)"
+              [[ -n "${match}" ]] || { echo "Missing expected gem artifact: ${name}" >&2; exit 1; }
+              mv "${match}" "gems/${name}"
+            fi
+          done
+
+          mapfile -t found < <(find gems -type f -name 'page_print-*.gem' -printf '%f\n' | sort)
+          printf 'Found gems:\n'
+          printf '  %s\n' "${found[@]}"
+
+          missing=()
+          for name in "${expected[@]}"; do
+            [[ -f "gems/${name}" ]] || missing+=("${name}")
+          done
+          unexpected=()
+          for base in "${found[@]}"; do
+            keep=false
+            for name in "${expected[@]}"; do
+              [[ "${base}" == "${name}" ]] && keep=true && break
+            done
+            [[ "${keep}" == true ]] || unexpected+=("${base}")
+          done
+
+          if ((${#missing[@]})); then
+            echo "Missing expected gem artifacts: ${missing[*]}" >&2
+            exit 1
+          fi
+          if ((${#unexpected[@]})); then
+            echo "Unexpected gem artifacts: ${unexpected[*]}" >&2
+            exit 1
+          fi
+
+      - uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Push gems to RubyGems
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          already_published() {
+            printf '%s' "$1" | grep -Eqi 'repushing of gem versions is not allowed|already (exists|been pushed|published)'
+          }
+
+          for name in \
+            "page_print-${version}.gem" \
+            "page_print-${version}-x86_64-linux.gem" \
+            "page_print-${version}-arm64-darwin.gem"
+          do
+            echo "Pushing ${name}"
+            set +e
+            output="$(gem push "gems/${name}" 2>&1)"
+            status=$?
+            set -e
+            printf '%s\n' "${output}"
+            if [[ "${status}" -eq 0 ]]; then
+              continue
+            fi
+            if already_published "${output}"; then
+              echo "${name} is already published, skipping"
+              continue
+            fi
+            echo "Failed to publish ${name}" >&2
+            exit 1
+          done
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          tag="${GITHUB_REF_NAME}"
+
+          prev="$(git tag -l 'v*' --sort=-v:refname | awk -v current="${tag}" '$0 != current { print; exit }')"
+          if [[ -n "${prev}" ]]; then
+            notes="$(git log "${prev}..${tag}" --oneline)"
+            [[ -n "${notes}" ]] || notes="No commits since ${prev}."
+          else
+            notes="Initial release."
+          fi
+
+          assets=(
+            "gems/page_print-${version}.gem"
+            "gems/page_print-${version}-x86_64-linux.gem"
+            "gems/page_print-${version}-arm64-darwin.gem"
+          )
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists; refreshing assets"
+            gh release upload "${tag}" "${assets[@]}" --clobber
+          else
+            gh release create "${tag}" --title "${tag}" --notes "${notes}" "${assets[@]}"
+          fi
