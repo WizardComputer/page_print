@@ -57,7 +57,10 @@ abort_with("Tag #{tag} already exists on origin") unless run("git", "ls-remote",
 
 File.write(VERSION_FILE, contents.sub(/VERSION\s*=\s*['"][^'"]+['"]/, "VERSION = '#{version}'"))
 
-run("git", "add", "lib/page_print/version.rb")
+# Path gem version is embedded in Gemfile.lock; frozen CI bundle install fails without this.
+run("bundle", "lock")
+
+run("git", "add", "lib/page_print/version.rb", "Gemfile.lock")
 run("git", "commit", "-m", "Release #{version}")
 run("git", "tag", "-a", tag, "-m", "Release #{version}")
 run("git", "push", "origin", "main")

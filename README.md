@@ -260,7 +260,7 @@ Publish a new version with:
 bin/bump 0.1.6
 ```
 
-That updates `lib/page_print/version.rb`, commits `Release 0.1.6`, creates annotated tag `v0.1.6`, and pushes `main` plus the tag. Requires a clean worktree on `main`.
+That updates `lib/page_print/version.rb` and `Gemfile.lock`, commits `Release 0.1.6`, creates annotated tag `v0.1.6`, and pushes `main` plus the tag. Requires a clean worktree on `main`.
 
 The Package workflow then builds the source and platform gems, pushes them to RubyGems (trusted publishing / OIDC, GitHub environment `release`), and creates a GitHub Release with the gem artifacts and commit notes since the previous `v*` tag.
 
