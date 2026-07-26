@@ -82,3 +82,18 @@ bundle exec rake
 ```
 
 If the environment lacks `plutobook`, report that compilation or tests could not be completed and include the relevant error.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for dixpac/page_print. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default triage roles: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root CONTEXT.md + docs/adr/. See `docs/agents/domain.md`.
+
