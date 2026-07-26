@@ -1,0 +1,66 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "shellwords"
+
+ROOT = File.expand_path("..", __dir__)
+VERSION_FILE = File.join(ROOT, "lib/page_print/version.rb")
+
+def abort_with(message)
+  warn message
+  exit 1
+end
+
+def run(*command, capture: false)
+  if capture
+    output, status = Open3.capture2e(*command, chdir: ROOT)
+    abort_with("Command failed: #{command.shelljoin}\n#{output}") unless status.success?
+
+    output
+  else
+    system(*command, chdir: ROOT) || abort_with("Command failed: #{command.shelljoin}")
+  end
+end
+
+def usage
+  "Usage: bin/bump X.Y.Z\nExample: bin/bump 0.1.6"
+end
+
+def parse_version(version)
+  version.split(".").map(&:to_i)
+end
+
+abort_with(usage) unless ARGV.length == 1
+
+version = ARGV.fetch(0)
+abort_with("Version must be X.Y.Z (digits only)") unless version.match?(/\A\d+\.\d+\.\d+\z/)
+
+branch = run("git", "branch", "--show-current", capture: true).strip
+abort_with("Must be on main (currently #{branch.empty? ? "detached HEAD" : branch})") unless branch == "main"
+
+status = run("git", "status", "--porcelain", capture: true)
+abort_with("Worktree is dirty:\n#{status}") unless status.empty?
+
+contents = File.read(VERSION_FILE)
+match = contents.match(/VERSION\s*=\s*['"]([^'"]+)['"]/)
+abort_with("Could not parse VERSION from lib/page_print/version.rb") unless match
+
+current = match[1]
+unless (parse_version(version) <=> parse_version(current)) == 1
+  abort_with("Version #{version} must be greater than current #{current}")
+end
+
+tag = "v#{version}"
+abort_with("Tag #{tag} already exists locally") unless run("git", "tag", "-l", tag, capture: true).strip.empty?
+abort_with("Tag #{tag} already exists on origin") unless run("git", "ls-remote", "--tags", "origin", "refs/tags/#{tag}", capture: true).strip.empty?
+
+File.write(VERSION_FILE, contents.sub(/VERSION\s*=\s*['"][^'"]+['"]/, "VERSION = '#{version}'"))
+
+run("git", "add", "lib/page_print/version.rb")
+run("git", "commit", "-m", "Release #{version}")
+run("git", "tag", "-a", tag, "-m", "Release #{version}")
+run("git", "push", "origin", "main")
+run("git", "push", "origin", tag)
+
+puts "Pushed #{tag}. CI Package workflow will publish gems and create the GitHub Release."

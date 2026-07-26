@@ -252,6 +252,18 @@ gem build page_print.gemspec
 gem install ./page_print-*.gem
 ```
 
+## Releasing
+
+Publish a new version with:
+
+```sh
+bin/bump 0.1.6
+```
+
+That updates `lib/page_print/version.rb`, commits `Release 0.1.6`, creates annotated tag `v0.1.6`, and pushes `main` plus the tag. Requires a clean worktree on `main`.
+
+The Package workflow then builds the source and platform gems, pushes them to RubyGems (trusted publishing / OIDC, GitHub environment `release`), and creates a GitHub Release with the gem artifacts and commit notes since the previous `v*` tag.
+
 ## Building Native Gems
 
 Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
