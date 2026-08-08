@@ -45,7 +45,6 @@ namespace :package do
     FileUtils.mkdir_p(vendor_dir)
     FileUtils.cp_r(File.join(plutobook_install_dir, "include"), vendor_dir)
     FileUtils.cp_r(File.join(plutobook_install_dir, "lib"), vendor_dir)
-    materialize_vendor_symlinks(File.join(vendor_dir, "lib"))
 
     ENV["PAGE_PRINT_VENDOR_PLATFORM"] = PAGE_PRINT_LINUX_PLATFORM
     Rake::Task["clean"].invoke if Rake::Task.task_defined?("clean")
@@ -56,6 +55,7 @@ namespace :package do
     vendor_linux_shared_libraries(extension_path, vendor_lib_dir)
     patch_linux_rpaths(extension_path, vendor_lib_dir)
     verify_no_missing_linux_libraries(extension_path, vendor_lib_dir)
+    collapse_vendor_shared_library_aliases(vendor_lib_dir)
     FileUtils.rm_f(extension_path)
 
     Bundler.with_unbundled_env do
@@ -98,14 +98,25 @@ def vendor_linux_shared_libraries(extension_path, vendor_lib_dir)
   end
 end
 
-def materialize_vendor_symlinks(vendor_lib_dir)
+def collapse_vendor_shared_library_aliases(vendor_lib_dir)
+  aliases = {}
+
   Dir.glob(File.join(vendor_lib_dir, "*.so*")).each do |library_path|
     next unless File.symlink?(library_path)
 
-    real_path = File.realpath(library_path)
+    target_name = File.basename(File.realpath(library_path))
+    alias_name = File.basename(library_path)
+    next if alias_name == target_name
+
+    aliases[alias_name] = target_name
     FileUtils.rm(library_path)
-    File.binwrite(library_path, File.binread(real_path))
-    FileUtils.chmod(0o755, library_path)
+  end
+
+  manifest_path = File.join(vendor_lib_dir, "so_aliases")
+  if aliases.empty?
+    FileUtils.rm_f(manifest_path)
+  else
+    File.write(manifest_path, aliases.sort.map { |alias_name, target_name| "#{alias_name}\t#{target_name}\n" }.join)
   end
 end
 
@@ -113,12 +124,21 @@ def patch_linux_rpaths(extension_path, vendor_lib_dir)
   sh "patchelf --set-rpath '$ORIGIN/vendor/#{package_linux_platform}/lib' #{extension_path.shellescape}"
 
   Dir.glob(File.join(vendor_lib_dir, "*.so*")).each do |library_path|
+    next if File.symlink?(library_path)
+
     sh "patchelf --set-rpath '$ORIGIN' #{library_path.shellescape}"
   end
 end
 
 def verify_no_missing_linux_libraries(extension_path, vendor_lib_dir)
-  [ extension_path, *Dir.glob(File.join(vendor_lib_dir, "*.so*")) ].each do |binary|
+  binaries = [extension_path]
+  Dir.glob(File.join(vendor_lib_dir, "*.so*")).each do |library_path|
+    next if File.symlink?(library_path)
+
+    binaries << library_path
+  end
+
+  binaries.each do |binary|
     output = `ldd #{binary.shellescape}`
     abort "Missing shared library for #{binary}:\n#{output}" if output.include?("not found")
   end
