@@ -277,7 +277,7 @@ Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
 bundle exec rake package:darwin_arm64
 ```
 
-These tasks check out PlutoBook `v0.18.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
+These tasks check out PlutoBook `v0.19.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
 
 Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
 
