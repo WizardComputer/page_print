@@ -4,7 +4,7 @@
 
 `page_print` is a Ruby gem with a native C extension that renders HTML strings to PDF files using the `plutobook` C library.
 
-The public Ruby API is intentionally small. `PagePrint.html_to_pdf` is the primary entry point.
+The public Ruby API is intentionally small. `PagePrint.render` is the primary entry point.
 
 ## Repository Layout
 
@@ -59,7 +59,7 @@ Use `bin/console` for a local development console. It compiles the extension bef
 ## Development Guidelines
 
 - Keep the Ruby-facing API minimal and documented in `README.md`.
-- When changing `PagePrint.html_to_pdf`, update tests for both successful output and validation/error behavior.
+- When changing `PagePrint.render` or `PagePrint.render_to_file`, update tests for both successful output and validation/error behavior.
 - Prefer inline Ruby calls for readability; only break Ruby argument lists across lines when the line would exceed 120 characters.
 - Format Ruby private sections with `private` at the class indentation level and private method definitions indented beneath it, without a blank line between `private` and the first private method.
 - Validate Ruby argument types before passing data into `plutobook`.

@@ -120,7 +120,7 @@ def pdfkit_options
 end
 
 def render_page_print(html, output_path)
-  PagePrint.html_to_pdf(html, output_path, **page_print_options)
+  PagePrint.render_to_file(html, output_path, **page_print_options)
 end
 
 def render_pdfkit(html, output_path)

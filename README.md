@@ -33,7 +33,7 @@ Render a PDF from a controller:
 class PrintsController < ApplicationController
   def pdf
     html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
-    pdf = PagePrint.html_to_pdf_string(
+    pdf = PagePrint.render(
       html,
       page_size: :a4,
       margins: :normal,
@@ -58,7 +58,7 @@ During controller actions, PagePrint defaults `base_url` to `request.base_url`. 
 You can still override `base_url` explicitly:
 
 ```ruby
-pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
+pdf = PagePrint.render(html, base_url: "https://example.com")
 ```
 
 Override the fetcher only when needed:
@@ -87,19 +87,19 @@ HTML
 
 output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
 
-PagePrint.html_to_pdf(html, output_path, base_url: "https://example.com")
+PagePrint.render_to_file(html, output_path, base_url: "https://example.com")
 ```
 
 To get the generated PDF as a binary string instead of writing directly to a file:
 
 ```ruby
-pdf = PagePrint.html_to_pdf_string(html, base_url: "https://example.com")
+pdf = PagePrint.render(html, base_url: "https://example.com")
 ```
 
 Use custom page dimensions and margins when a preset is not enough:
 
 ```ruby
-pdf = PagePrint.html_to_pdf_string(
+pdf = PagePrint.render(
   html,
   page_size: { width: 100, height: 150, unit: :mm },
   margins: { top: 5, right: 6, bottom: 7, left: 8, unit: :mm }
@@ -181,7 +181,7 @@ Native gems bundle PlutoBook and required non-system shared libraries. Optional 
 
 ## Notes
 
-- The extension supports writing to a file path with `html_to_pdf` or returning PDF bytes with `html_to_pdf_string`.
+- The extension supports writing to a file path with `render_to_file` or returning PDF bytes with `render`.
 - JavaScript execution is intentionally unsupported.
 - Native gems disable PlutoBook's optional curl, TurboJPEG, and WebP features.
 
@@ -213,13 +213,13 @@ require "tmpdir"
 
 output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
 
-PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)
+PagePrint.render_to_file("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)
 ```
 
 You can also do a quick one-shot smoke test from the shell:
 
 ```sh
-bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.html_to_pdf("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
+bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.render_to_file("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
 ```
 
 Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
