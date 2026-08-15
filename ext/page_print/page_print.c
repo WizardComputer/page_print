@@ -739,7 +739,7 @@ static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const
     return PLUTOBOOK_STREAM_STATUS_SUCCESS;
 }
 
-static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
+static VALUE pageprint_render_to_file(int argc, VALUE *argv, VALUE self) {
     VALUE html;
     VALUE path;
     VALUE options;
@@ -799,7 +799,7 @@ static VALUE pageprint_html_to_pdf(int argc, VALUE *argv, VALUE self) {
     return Qtrue;
 }
 
-static VALUE pageprint_html_to_pdf_string(int argc, VALUE *argv, VALUE self) {
+static VALUE pageprint_render(int argc, VALUE *argv, VALUE self) {
     VALUE html;
     VALUE options;
     pageprint_pdf_string_output_t output;
@@ -888,6 +888,6 @@ void Init_page_print(void) {
     id_mm = rb_intern_const("mm");
     id_px = rb_intern_const("px");
 
-    rb_define_singleton_method(mPagePrint, "html_to_pdf", RUBY_METHOD_FUNC(pageprint_html_to_pdf), -1);
-    rb_define_singleton_method(mPagePrint, "html_to_pdf_string", RUBY_METHOD_FUNC(pageprint_html_to_pdf_string), -1);
+    rb_define_singleton_method(mPagePrint, "render_to_file", RUBY_METHOD_FUNC(pageprint_render_to_file), -1);
+    rb_define_singleton_method(mPagePrint, "render", RUBY_METHOD_FUNC(pageprint_render), -1);
 }

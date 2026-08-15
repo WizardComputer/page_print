@@ -105,7 +105,7 @@ class PagePrintTest < Minitest::Test
       File.binwrite(File.join(assets_dir, 'pdf.css'), 'body { color: green; }')
 
       PagePrint.resource_fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(public_dir))
-      pdf = PagePrint.html_to_pdf_string(
+      pdf = PagePrint.render(
         '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
         base_url: 'http://example.com'
       )
@@ -115,12 +115,12 @@ class PagePrintTest < Minitest::Test
     end
   end
 
-  def test_html_to_pdf_string_uses_configured_base_url
+  def test_render_uses_configured_base_url
     urls = []
 
     PagePrint.base_url = 'http://example.com'
 
-    pdf = PagePrint.html_to_pdf_string(
+    pdf = PagePrint.render(
       '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
       resource_fetcher: lambda { |url|
         urls << url
@@ -133,11 +133,11 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_uses_request_local_base_url
+  def test_render_uses_request_local_base_url
     urls = []
 
     pdf = PagePrint.with_base_url('http://request.example') do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
         resource_fetcher: lambda { |url|
           urls << url
@@ -161,11 +161,11 @@ class PagePrintTest < Minitest::Test
     assert_equal 'http://configured.example', PagePrint.base_url
   end
 
-  def test_html_to_pdf_string_does_not_override_explicit_base_url
+  def test_render_does_not_override_explicit_base_url
     urls = []
 
     pdf = PagePrint.with_base_url('http://request.example') do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="/assets/pdf.css"></head><body><h1>Hello</h1></body></html>',
         base_url: 'http://explicit.example',
         resource_fetcher: lambda { |url|
@@ -180,53 +180,53 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_requires_html_to_be_a_string
+  def test_render_to_file_requires_html_to_be_a_string
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf(123, 'output.pdf')
+      PagePrint.render_to_file(123, 'output.pdf')
     end
 
     assert_equal 'html must be a String', error.message
   end
 
-  def test_html_to_pdf_requires_path_to_be_a_string
+  def test_render_to_file_requires_path_to_be_a_string
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 123)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 123)
     end
 
     assert_equal 'path must be a String', error.message
   end
 
-  def test_html_to_pdf_rejects_empty_html
+  def test_render_to_file_rejects_empty_html
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('', 'output.pdf')
+      PagePrint.render_to_file('', 'output.pdf')
     end
 
     assert_equal 'html must not be empty', error.message
   end
 
-  def test_html_to_pdf_rejects_empty_path
+  def test_render_to_file_rejects_empty_path
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', '')
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', '')
     end
 
     assert_equal 'path must not be empty', error.message
   end
 
-  def test_html_to_pdf_writes_output_file
+  def test_render_to_file_writes_output_file
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
 
-      assert PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', output_path)
+      assert PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', output_path)
       assert File.exist?(output_path)
       assert_operator File.size(output_path), :>, 0
     end
   end
 
-  def test_html_to_pdf_accepts_keyword_options
+  def test_render_to_file_accepts_keyword_options
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
 
-      assert PagePrint.html_to_pdf(
+      assert PagePrint.render_to_file(
         '<html><body><h1>Hello</h1></body></html>',
         output_path,
         base_url: 'https://example.com',
@@ -240,11 +240,11 @@ class PagePrintTest < Minitest::Test
     end
   end
 
-  def test_html_to_pdf_accepts_custom_page_size_and_margins
+  def test_render_to_file_accepts_custom_page_size_and_margins
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
 
-      assert PagePrint.html_to_pdf(
+      assert PagePrint.render_to_file(
         '<html><body><h1>Hello</h1></body></html>',
         output_path,
         page_size: { width: 100, height: 150, unit: :mm },
@@ -257,11 +257,11 @@ class PagePrintTest < Minitest::Test
     end
   end
 
-  def test_html_to_pdf_accepts_metadata
+  def test_render_to_file_accepts_metadata
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
 
-      assert PagePrint.html_to_pdf(
+      assert PagePrint.render_to_file(
         '<html><body><h1>Hello</h1></body></html>',
         output_path,
         metadata: {
@@ -285,8 +285,8 @@ class PagePrintTest < Minitest::Test
     end
   end
 
-  def test_html_to_pdf_string_returns_pdf_bytes
-    pdf = PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>')
+  def test_render_returns_pdf_bytes
+    pdf = PagePrint.render('<html><body><h1>Hello</h1></body></html>')
 
     assert_instance_of String, pdf
     assert_equal Encoding::ASCII_8BIT, pdf.encoding
@@ -294,8 +294,8 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_accepts_keyword_options
-    pdf = PagePrint.html_to_pdf_string(
+  def test_render_accepts_keyword_options
+    pdf = PagePrint.render(
       '<html><body><h1>Hello</h1></body></html>',
       base_url: 'https://example.com',
       page_size: :letter,
@@ -307,8 +307,8 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_accepts_metadata
-    pdf = PagePrint.html_to_pdf_string(
+  def test_render_accepts_metadata
+    pdf = PagePrint.render(
       '<html><body><h1>Hello</h1></body></html>',
       metadata: {
         title: 'Test PDF',
@@ -324,8 +324,8 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_accepts_nil_metadata
-    pdf = PagePrint.html_to_pdf_string(
+  def test_render_accepts_nil_metadata
+    pdf = PagePrint.render(
       '<html><body><h1>Hello</h1></body></html>',
       metadata: nil
     )
@@ -334,52 +334,52 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_requires_metadata_to_be_a_hash_or_nil
+  def test_render_requires_metadata_to_be_a_hash_or_nil
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: 'title')
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', metadata: 'title')
     end
 
     assert_equal 'metadata must be a Hash or nil', error.message
   end
 
-  def test_html_to_pdf_string_requires_metadata_keys_to_be_symbols
+  def test_render_requires_metadata_keys_to_be_symbols
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { 'title' => 'Test PDF' })
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', metadata: { 'title' => 'Test PDF' })
     end
 
     assert_equal 'metadata keys must be Symbols', error.message
   end
 
-  def test_html_to_pdf_string_rejects_unknown_metadata_keys
+  def test_render_rejects_unknown_metadata_keys
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { publisher: 'PagePrint' })
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', metadata: { publisher: 'PagePrint' })
     end
 
     assert_equal 'metadata contains unknown key: :publisher', error.message
   end
 
-  def test_html_to_pdf_string_rejects_creator_metadata
+  def test_render_rejects_creator_metadata
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { creator: 'PagePrint' })
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', metadata: { creator: 'PagePrint' })
     end
 
     assert_equal 'metadata contains unknown key: :creator', error.message
   end
 
-  def test_html_to_pdf_string_requires_metadata_values_to_be_strings_or_nil
+  def test_render_requires_metadata_values_to_be_strings_or_nil
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', metadata: { title: 123 })
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', metadata: { title: 123 })
     end
 
     assert_equal 'metadata values must be Strings or nil', error.message
   end
 
-  def test_html_to_pdf_string_reraises_metadata_errors_after_html_load
+  def test_render_reraises_metadata_errors_after_html_load
     metadata = { title: 'Test PDF' }
     html = '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>'
 
     assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         html,
         metadata: metadata,
         resource_fetcher: lambda { |_url|
@@ -389,13 +389,13 @@ class PagePrintTest < Minitest::Test
       )
     end
 
-    pdf = PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>')
+    pdf = PagePrint.render('<html><body><h1>Hello</h1></body></html>')
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_uses_resource_fetcher
+  def test_render_uses_resource_fetcher
     urls = []
-    pdf = PagePrint.html_to_pdf_string(
+    pdf = PagePrint.render(
       '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
       resource_fetcher: lambda { |url|
         urls << url
@@ -408,14 +408,14 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_uses_configured_resource_fetcher
+  def test_render_uses_configured_resource_fetcher
     urls = []
     PagePrint.resource_fetcher = lambda { |url|
       urls << url
       { content: 'body { color: blue; }', mime_type: 'text/css' }
     }
 
-    pdf = PagePrint.html_to_pdf_string(
+    pdf = PagePrint.render(
       '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>'
     )
 
@@ -424,17 +424,17 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_requires_resource_fetcher_to_respond_to_call
+  def test_render_requires_resource_fetcher_to_respond_to_call
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', resource_fetcher: Object.new)
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', resource_fetcher: Object.new)
     end
 
     assert_equal 'resource_fetcher must respond to call or be nil/false', error.message
   end
 
-  def test_html_to_pdf_string_requires_resource_fetcher_result_to_be_a_hash_or_nil
+  def test_render_requires_resource_fetcher_result_to_be_a_hash_or_nil
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
         resource_fetcher: ->(_url) { [] }
       )
@@ -443,9 +443,9 @@ class PagePrintTest < Minitest::Test
     assert_equal 'resource_fetcher must return a Hash or nil', error.message
   end
 
-  def test_html_to_pdf_string_requires_resource_fetcher_content_to_be_a_string
+  def test_render_requires_resource_fetcher_content_to_be_a_string
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
         resource_fetcher: ->(_url) { { content: nil, mime_type: 'text/css' } }
       )
@@ -454,12 +454,12 @@ class PagePrintTest < Minitest::Test
     assert_equal 'resource_fetcher result content must be a String', error.message
   end
 
-  def test_html_to_pdf_string_rejects_resource_fetcher_content_larger_than_uint_max
+  def test_render_rejects_resource_fetcher_content_larger_than_uint_max
     html = '<html><head><link rel="stylesheet" href="custom:style"></head><body></body></html>'
     content = oversized_string(2**32)
 
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         html,
         resource_fetcher: ->(_url) { { content: content, mime_type: 'text/css' } }
       )
@@ -468,9 +468,9 @@ class PagePrintTest < Minitest::Test
     assert_equal 'resource_fetcher result content is too large', error.message
   end
 
-  def test_html_to_pdf_string_requires_resource_fetcher_mime_type_to_be_a_string
+  def test_render_requires_resource_fetcher_mime_type_to_be_a_string
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
         resource_fetcher: ->(_url) { { content: 'body {}', mime_type: nil } }
       )
@@ -479,9 +479,9 @@ class PagePrintTest < Minitest::Test
     assert_equal 'resource_fetcher result mime_type must be a String', error.message
   end
 
-  def test_html_to_pdf_string_reraises_resource_fetcher_errors
+  def test_render_reraises_resource_fetcher_errors
     error = assert_raises(RuntimeError) do
-      PagePrint.html_to_pdf_string(
+      PagePrint.render(
         '<html><head><link rel="stylesheet" href="custom:style"></head><body><h1>Hello</h1></body></html>',
         resource_fetcher: ->(_url) { raise 'fetch failed' }
       )
@@ -490,11 +490,11 @@ class PagePrintTest < Minitest::Test
     assert_equal 'fetch failed', error.message
   end
 
-  def test_html_to_pdf_string_denies_network_fetch_when_resource_fetcher_returns_nil
+  def test_render_denies_network_fetch_when_resource_fetcher_returns_nil
     html = '<html><head><link rel="stylesheet" href="http://example.com/style.css"></head><body></body></html>'
     urls = []
 
-    pdf = PagePrint.html_to_pdf_string(
+    pdf = PagePrint.render(
       html,
       resource_fetcher: ->(url) {
         urls << url
@@ -507,82 +507,82 @@ class PagePrintTest < Minitest::Test
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_denies_network_fetch_without_resource_fetcher
+  def test_render_denies_network_fetch_without_resource_fetcher
     html = '<html><head><link rel="stylesheet" href="http://example.com/style.css"></head><body></body></html>'
 
-    pdf = PagePrint.html_to_pdf_string(html)
+    pdf = PagePrint.render(html)
 
     assert_operator pdf.bytesize, :>, 0
     assert_equal '%PDF', pdf.byteslice(0, 4)
   end
 
-  def test_html_to_pdf_string_requires_html_to_be_a_string
+  def test_render_requires_html_to_be_a_string
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string(123)
+      PagePrint.render(123)
     end
 
     assert_equal 'html must be a String', error.message
   end
 
-  def test_html_to_pdf_string_rejects_empty_html
+  def test_render_rejects_empty_html
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string('')
+      PagePrint.render('')
     end
 
     assert_equal 'html must not be empty', error.message
   end
 
-  def test_html_to_pdf_string_rejects_html_larger_than_int_max
+  def test_render_rejects_html_larger_than_int_max
     html = oversized_string(2**31)
 
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string(html)
+      PagePrint.render(html)
     end
 
     assert_equal 'html is too large', error.message
   end
 
-  def test_html_to_pdf_string_rejects_invalid_options
+  def test_render_rejects_invalid_options
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', :options)
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', :options)
     end
 
     assert_equal 'options must be a Hash', error.message
   end
 
-  def test_html_to_pdf_string_rejects_unknown_keyword
+  def test_render_rejects_unknown_keyword
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', foo: :bar)
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', foo: :bar)
     end
 
     assert_equal 'unknown keyword: :foo', error.message
   end
 
-  def test_html_to_pdf_string_rejects_invalid_media
+  def test_render_rejects_invalid_media
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf_string('<html><body><h1>Hello</h1></body></html>', media: :speech)
+      PagePrint.render('<html><body><h1>Hello</h1></body></html>', media: :speech)
     end
 
     assert_equal 'media must be one of: :print, :screen', error.message
   end
 
-  def test_html_to_pdf_includes_path_when_pdf_write_fails
+  def test_render_to_file_includes_path_when_pdf_write_fails
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'missing', 'output.pdf')
 
       error = assert_raises(RuntimeError) do
-        PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', output_path)
+        PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', output_path)
       end
 
       assert_match(/\Afailed to write PDF to #{Regexp.escape(output_path)}/, error.message)
     end
   end
 
-  def test_html_to_pdf_accepts_nil_base_url
+  def test_render_to_file_accepts_nil_base_url
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
 
-      assert PagePrint.html_to_pdf(
+      assert PagePrint.render_to_file(
         '<html><body><h1>Hello</h1></body></html>',
         output_path,
         base_url: nil
@@ -593,129 +593,129 @@ class PagePrintTest < Minitest::Test
     end
   end
 
-  def test_html_to_pdf_requires_options_to_be_a_hash
+  def test_render_to_file_requires_options_to_be_a_hash
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', :options)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', :options)
     end
 
     assert_equal 'options must be a Hash', error.message
   end
 
-  def test_html_to_pdf_requires_base_url_to_be_a_string_or_nil
+  def test_render_to_file_requires_base_url_to_be_a_string_or_nil
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', base_url: 123)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', base_url: 123)
     end
 
     assert_equal 'base_url must be a String or nil', error.message
   end
 
-  def test_html_to_pdf_rejects_invalid_page_size
+  def test_render_to_file_rejects_invalid_page_size
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: :tabloid)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: :tabloid)
     end
 
     assert_equal 'page_size must be one of: :a3, :a4, :a5, :b4, :b5, :letter, :legal, :ledger', error.message
   end
 
-  def test_html_to_pdf_requires_page_size_to_be_a_symbol_or_hash
+  def test_render_to_file_requires_page_size_to_be_a_symbol_or_hash
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: 'letter')
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: 'letter')
     end
 
     assert_equal 'page_size must be a Symbol or Hash', error.message
   end
 
-  def test_html_to_pdf_requires_custom_page_size_width
+  def test_render_to_file_requires_custom_page_size_width
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { height: 150, unit: :mm })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { height: 150, unit: :mm })
     end
 
     assert_equal 'page_size requires :width', error.message
   end
 
-  def test_html_to_pdf_requires_custom_page_size_height
+  def test_render_to_file_requires_custom_page_size_height
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, unit: :mm })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, unit: :mm })
     end
 
     assert_equal 'page_size requires :height', error.message
   end
 
-  def test_html_to_pdf_requires_custom_page_size_unit
+  def test_render_to_file_requires_custom_page_size_unit
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150 })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150 })
     end
 
     assert_equal 'page_size requires :unit', error.message
   end
 
-  def test_html_to_pdf_rejects_invalid_custom_page_size_unit
+  def test_render_to_file_rejects_invalid_custom_page_size_unit
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150, unit: :meter })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 100, height: 150, unit: :meter })
     end
 
     assert_equal 'page_size unit must be one of: :pt, :pc, :in, :cm, :mm, :px', error.message
   end
 
-  def test_html_to_pdf_rejects_non_positive_custom_page_size
+  def test_render_to_file_rejects_non_positive_custom_page_size
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 0, height: 150, unit: :mm })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', page_size: { width: 0, height: 150, unit: :mm })
     end
 
     assert_equal 'page_size width must be greater than 0', error.message
   end
 
-  def test_html_to_pdf_rejects_invalid_margins
+  def test_render_to_file_rejects_invalid_margins
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: :compact)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: :compact)
     end
 
     assert_equal 'margins must be one of: :none, :normal, :narrow, :moderate, :wide', error.message
   end
 
-  def test_html_to_pdf_requires_margins_to_be_a_symbol_or_hash
+  def test_render_to_file_requires_margins_to_be_a_symbol_or_hash
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: 'narrow')
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: 'narrow')
     end
 
     assert_equal 'margins must be a Symbol or Hash', error.message
   end
 
-  def test_html_to_pdf_requires_custom_margins_unit
+  def test_render_to_file_requires_custom_margins_unit
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: 1, right: 1, bottom: 1, left: 1 })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: 1, right: 1, bottom: 1, left: 1 })
     end
 
     assert_equal 'margins requires :unit', error.message
   end
 
-  def test_html_to_pdf_rejects_negative_custom_margins
+  def test_render_to_file_rejects_negative_custom_margins
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: -1, right: 1, bottom: 1, left: 1, unit: :mm })
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: { top: -1, right: 1, bottom: 1, left: 1, unit: :mm })
     end
 
     assert_equal 'margins values must be greater than or equal to 0', error.message
   end
 
-  def test_html_to_pdf_rejects_invalid_media
+  def test_render_to_file_rejects_invalid_media
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', media: :speech)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', media: :speech)
     end
 
     assert_equal 'media must be one of: :print, :screen', error.message
   end
 
-  def test_html_to_pdf_requires_media_to_be_a_symbol
+  def test_render_to_file_requires_media_to_be_a_symbol
     error = assert_raises(TypeError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', media: 'screen')
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', media: 'screen')
     end
 
     assert_equal 'media must be a Symbol', error.message
   end
 
-  def test_html_to_pdf_rejects_unknown_keyword
+  def test_render_to_file_rejects_unknown_keyword
     error = assert_raises(ArgumentError) do
-      PagePrint.html_to_pdf('<html><body><h1>Hello</h1></body></html>', 'output.pdf', foo: :bar)
+      PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', foo: :bar)
     end
 
     assert_equal 'unknown keyword: :foo', error.message
