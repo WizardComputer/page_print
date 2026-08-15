@@ -15,6 +15,7 @@ PAGE_PRINT_LINUX_SYSTEM_LIBRARIES = %w[
   libpthread.so
   libresolv.so
   librt.so
+  libruby.
   libstdc++.so
   linux-vdso
 ].freeze
