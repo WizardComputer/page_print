@@ -45,11 +45,14 @@ module PagePrint
       return unless public_path
 
       relative_path = path.delete_prefix('/')
-      file_path = public_path.join(relative_path).cleanpath
+      public_path = public_path.realpath
+      file_path = public_path.join(relative_path).realpath
       return unless inside_path?(file_path, public_path)
       return unless file_path.file?
 
       resource(File.binread(file_path), file_path.extname)
+    rescue Errno::ENOENT, Errno::EACCES, Errno::ELOOP
+      nil
     end
 
     def read_resolved_asset(path)
