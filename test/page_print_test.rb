@@ -62,6 +62,20 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_rails_resource_fetcher_rejects_symlinks_outside_public_path
+    Dir.mktmpdir do |dir|
+      public_dir = File.join(dir, 'public')
+      assets_dir = File.join(public_dir, 'assets')
+      FileUtils.mkdir_p(assets_dir)
+      File.binwrite(File.join(dir, 'secret.css'), 'body { content: "secret"; }')
+      File.symlink(File.join(dir, 'secret.css'), File.join(assets_dir, 'secret.css'))
+
+      fetcher = PagePrint::RailsResourceFetcher.new(rails: fake_rails(public_dir))
+
+      assert_nil fetcher.call('http://example.com/assets/secret.css')
+    end
+  end
+
   def test_rails_resource_fetcher_uses_propshaft_load_path_for_digested_assets
     asset = Struct.new(:logical_path).new('pdf.css')
     load_path = Class.new do
