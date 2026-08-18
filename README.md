@@ -1,284 +1,205 @@
 # PagePrint
 
+Fast, in-process HTML-to-PDF rendering for Ruby, powered by [PlutoBook](https://github.com/plutoprint/plutobook).
+
 > [!IMPORTANT]
-> PagePrint is not production-ready yet. The gem is still in active testing, especially around native packaging and platform compatibility.
+> PagePrint is still pre-1.0 and is not yet recommended as a drop-in production dependency without application-specific testing. Native packaging and platform compatibility are still being validated. See the [production guide](docs/production.md) before deploying it.
 
-`page_print` renders HTML strings to PDF files from Ruby using the `plutobook` library through a native C extension.
+PagePrint turns an HTML string into PDF bytes—or writes it directly to a file—through a small native C extension. It is designed for server-generated documents such as invoices, reports, labels, and statements where the HTML is known in advance and does not depend on JavaScript.
 
-It exists as a faster, simpler alternative to PDFKit and other `wkhtmltopdf`-based gems. There is no external renderer process to shell out to, and the public Ruby API is intentionally small.
+
+## Why PagePrint?
+
+PDFKit and Wicked PDF render documents by launching the `wkhtmltopdf` executable. PagePrint instead embeds a purpose-built paged-media renderer in the Ruby process.
+
+That gives PagePrint a few useful properties:
+
+- **No renderer subprocess:** no executable discovery, shelling out, or process startup per render.
+- **A small Ruby API:** pass HTML in and receive PDF bytes, or write directly to a path.
+- **Print-oriented CSS:** PlutoBook supports paged-media features such as `@page`, page counters, and running headers and footers.
+- **Controlled resource loading:** PagePrint does not fetch unresolved HTTP URLs. Your application decides which stylesheets, images, and fonts may be loaded.
+- **Rails asset integration:** Propshaft and `public/assets` resources work without HTTP requests back into the application.
+
+### How does it compare with PDFKit and Wicked PDF?
+
+PDFKit and Wicked PDF are Ruby integrations for `wkhtmltopdf`; their rendering behavior and operational requirements come from that executable.
+
+| | PagePrint / PlutoBook | PDFKit or Wicked PDF / `wkhtmltopdf` |
+| --- | --- | --- |
+| Runtime model | Native library in the Ruby process | External `wkhtmltopdf` executable |
+| Rendering engine | Purpose-built for static documents and CSS paged media | Legacy Qt WebKit browser engine |
+| JavaScript | Not supported | Supported by legacy Qt WebKit |
+| Network access | Denied unless your fetcher supplies the resource | Built in |
+| CSS compatibility | Print-focused and partial; no CSS Grid | Limited by the old WebKit engine |
+| Operational footprint | Native gem and bundled libraries on supported platforms | `wkhtmltopdf` binary plus Qt/WebKit dependencies |
+| Upstream status | PagePrint currently packages PlutoBook 0.19.0 | `wkhtmltopdf` was archived in 2023 |
+
+PagePrint is a strong fit when you control the templates, value predictable print layout, and do not need JavaScript. Stay with a `wkhtmltopdf`-based gem if your existing templates depend on its JavaScript or WebKit-specific rendering behavior. When migrating, compare representative output carefully because changing engines can alter pagination, fonts, and layout.
+
+The `wkhtmltopdf` project was [archived in 2023](https://github.com/wkhtmltopdf/wkhtmltopdf) and its own [status document](https://github.com/wkhtmltopdf/wkhtmltopdf/blob/master/docs/status.md) describes its Qt 4 / WebKit stack as unsupported and outdated. PlutoBook is purpose-built for static paged output, but has a narrower feature set; review its [feature matrix](https://github.com/plutoprint/plutobook/blob/main/FEATURES.md) before migrating a complex template.
 
 ## Installation
 
-Add PagePrint to your Gemfile:
+Add the gem to your `Gemfile`:
 
 ```ruby
 gem "page_print"
 ```
 
-Or install from RubyGems directly:
-
-```sh
-gem install page_print
-```
-
-Native gems are published for `x86_64-linux` and `arm64-darwin`. Other platforms build from source and require PlutoBook development headers and library files.
-
-## Rails Usage
-
-PagePrint is optimized for Rails applications using Propshaft. In Rails, PagePrint installs a default Propshaft-backed resource fetcher and uses the current request URL as the default `base_url`.
-
-Render a PDF from a controller:
-
-```ruby
-class PrintsController < ApplicationController
-  def pdf
-    html = render_to_string(template: "prints/pdf", formats: [:html], layout: "pdf")
-    pdf = PagePrint.render(
-      html,
-      page_size: :a4,
-      margins: :normal,
-      media: :print,
-      metadata: { title: "Print PDF", author: "PagePrint" }
-    )
-
-    send_data pdf, filename: "print.pdf", type: "application/pdf", disposition: "inline"
-  end
-end
-```
-
-Use normal Rails asset helpers in the PDF template or layout:
-
-```erb
-<%= stylesheet_link_tag "pdf" %>
-<%= image_tag "logo.png" %>
-```
-
-During controller actions, PagePrint defaults `base_url` to `request.base_url`. The default Rails resource fetcher resolves `/assets/...` through Propshaft or `public/assets`, avoiding HTTP requests back to the Rails app.
-
-You can still override `base_url` explicitly:
-
-```ruby
-pdf = PagePrint.render(html, base_url: "https://example.com")
-```
-
-Override the fetcher only when needed:
-
-```ruby
-# config/initializers/page_print.rb
-PagePrint.configure do |config|
-  config.resource_fetcher = MyResourceFetcher.new
-end
-```
-
-## Ruby Usage
-
-```ruby
-require "page_print"
-require "tmpdir"
-
-html = <<~HTML
-  <html>
-    <body>
-      <h1>Hello</h1>
-      <p>This PDF was generated by PagePrint.</p>
-    </body>
-  </html>
-HTML
-
-output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
-
-PagePrint.render_to_file(html, output_path, base_url: "https://example.com")
-```
-
-To get the generated PDF as a binary string instead of writing directly to a file:
-
-```ruby
-pdf = PagePrint.render(html, base_url: "https://example.com")
-```
-
-Use custom page dimensions and margins when a preset is not enough:
-
-```ruby
-pdf = PagePrint.render(
-  html,
-  page_size: { width: 100, height: 150, unit: :mm },
-  margins: { top: 5, right: 6, bottom: 7, left: 8, unit: :mm }
-)
-```
-
-You can configure default options once, for example to provide a resource fetcher used by all renders:
-
-```ruby
-PagePrint.configure do |config|
-  config.resource_fetcher = lambda do |url|
-    next unless url == "asset:pdf.css"
-
-    { content: "body { font-family: sans-serif; }", mime_type: "text/css" }
-  end
-end
-```
-
-## Options
-
-Supported keyword options:
-
-- `base_url:` string used to resolve relative URLs in the HTML
-- `page_size:` one of `:a3`, `:a4`, `:a5`, `:b4`, `:b5`, `:letter`, `:legal`, `:ledger`, or `{ width:, height:, unit: }`
-- `margins:` one of `:none`, `:normal`, `:narrow`, `:moderate`, `:wide`, or `{ top:, right:, bottom:, left:, unit: }`
-- `media:` one of `:print`, `:screen`
-- `resource_fetcher:` callable that receives a URL and returns `nil` or `{ content:, mime_type:, text_encoding: nil }`
-- `metadata:` hash with `:title`, `:author`, `:subject`, `:keywords`, `:creation_date`, or `:modification_date`
-
-Unresolved URLs are not fetched over the network. Provide assets through `resource_fetcher`, or return `nil` to skip a URL.
-
-`metadata[:creation_date]` and `metadata[:modification_date]` should be ISO-8601 strings, for example `2026-05-10T12:00:00Z`.
-
-Custom dimensions and margins require `unit:`. Supported units are `:pt`, `:pc`, `:in`, `:cm`, `:mm`, and `:px`.
-
-## Benchmarking
-
-```sh
-RUNS=30 WARMUPS=3 bundle exec ruby benchmark/pdf_renderers.rb
-```
-
-Measured on 2026-05-30 with Ruby 3.4.7 on Apple Silicon:
-
-| Renderer | Avg wall | P95 wall | Avg CPU | Avg peak RSS | Avg PDF |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `page_print` | 78.2ms | 89.6ms | 93.4ms | 42.1MB | 33.0KB |
-| PDFKit | 782.2ms | 2127.1ms | 824.8ms | 59.4MB | 27.9KB |
-
-For options and CSV output, see `benchmark/README.md`.
-
-## Requirements
-
-- Ruby 3.2+
-- Native gems are published for `x86_64-linux` and `arm64-darwin`.
-- Native gems vendor PlutoBook but compile the small Ruby extension during install so it links against your local Ruby.
-- Source builds on unsupported platforms require PlutoBook development headers and library files.
-
-Supported platforms:
-
-| Platform | Install Type |
-| --- | --- |
-| `x86_64-linux` | Vendored PlutoBook, local Ruby extension build |
-| `arm64-darwin` | Vendored PlutoBook, local Ruby extension build |
-| Other platforms | Source build |
-
-Source build requirements on macOS with Homebrew:
-
-```sh
-brew install plutobook pkg-config
-```
-
-If `pkg-config` cannot find `plutobook`, install the gem with explicit include and library paths:
-
-```sh
-gem install page_print -- --with-plutobook-include=/path/to/include --with-plutobook-lib=/path/to/lib
-```
-
-Native gems bundle PlutoBook and required non-system shared libraries. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled in native gems to keep the bundled dependency set smaller.
-
-## Notes
-
-- The extension supports writing to a file path with `render_to_file` or returning PDF bytes with `render`.
-- JavaScript execution is intentionally unsupported.
-- Native gems disable PlutoBook's optional curl, TurboJPEG, and WebP features.
-
-## Development
-
-Install development dependencies:
+Then run:
 
 ```sh
 bundle install
 ```
 
-Compile the native extension into `lib/page_print`:
+PagePrint requires Ruby 3.2 or newer. Native gems with vendored PlutoBook libraries are published for:
 
-```sh
-bundle exec rake compile
-```
+- `x86_64-linux`
+- `arm64-darwin` (Apple Silicon)
 
-Open an interactive Ruby session against the local checkout:
+Other platforms build from source and require PlutoBook development headers and libraries. See [Installing on other platforms](docs/production.md#installing-on-other-platforms).
 
-```sh
-bundle exec irb -Ilib
-```
+## Quick start
 
-Then load the gem from the repo and try it:
+Require PagePrint and render an HTML string:
 
 ```ruby
 require "page_print"
-require "tmpdir"
 
-output_path = File.join(Dir.tmpdir, "page_print-output.pdf")
+html = <<~HTML
+  <!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        @page {
+          size: A4;
 
-PagePrint.render_to_file("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)
+          @bottom-center {
+            content: counter(page) " / " counter(pages);
+            color: #666;
+            font-size: 10pt;
+          }
+        }
+
+        body { font-family: sans-serif; }
+      </style>
+    </head>
+    <body>
+      <h1>Invoice #1042</h1>
+      <p>Thank you for your business.</p>
+    </body>
+  </html>
+HTML
+
+pdf = PagePrint.render(html, page_size: :a4, margins: :normal)
 ```
 
-You can also do a quick one-shot smoke test from the shell:
+For large documents, write directly to a file instead of retaining the PDF in a Ruby string:
 
-```sh
-bundle exec ruby -Ilib -e 'require "tmpdir"; require "page_print"; output_path = File.join(Dir.tmpdir, "page_print-output.pdf"); p PagePrint.render_to_file("<html><body><h1>Hello</h1></body></html>", output_path, page_size: :letter, margins: :narrow, media: :screen)'
+```ruby
+PagePrint.render_to_file(html, "invoice.pdf", page_size: :a4, margins: :normal)
 ```
 
-Or use the development console, which compiles the native extension first and then starts IRB with `PagePrint` loaded:
+`render_to_file` returns `true`; `render` returns an `ASCII-8BIT` Ruby string containing the PDF.
 
-```sh
-bin/console
+## Rails
+
+PagePrint integrates automatically with Rails applications that use Propshaft. Render a template to HTML, pass it to PagePrint, then send the resulting bytes:
+
+```ruby
+class InvoicesController < ApplicationController
+  def show
+    html = render_to_string(template: "invoices/show", formats: [:html], layout: "pdf")
+    pdf = PagePrint.render(html, page_size: :a4, margins: :normal, metadata: { title: "Invoice ##{params[:id]}", author: "Example Ltd" })
+
+    send_data pdf, filename: "invoice-#{params[:id]}.pdf", type: "application/pdf", disposition: "inline"
+  end
+end
 ```
 
-## Running Tests
+Normal asset helpers can be used in the PDF template:
 
-Run the test suite only:
-
-```sh
-bundle exec rake test
+```erb
+<%= stylesheet_link_tag "pdf" %>
+<%= image_tag "logo.png", alt: "Example Ltd" %>
 ```
 
-Or run the default rake task, which compiles the extension and then runs tests:
+During a controller action, PagePrint uses `request.base_url` to resolve relative URLs. Its Rails resource fetcher reads `/assets/...` from Propshaft or `public/assets`; it does not make an HTTP request back to Rails.
+
+## Assets and network access
+
+PagePrint intentionally does not download unresolved resources. Supply a `resource_fetcher` when non-Rails HTML needs external styles, images, or fonts:
+
+```ruby
+assets = {
+  "asset:pdf.css" => {
+    content: File.binread("app/assets/stylesheets/pdf.css"),
+    mime_type: "text/css"
+  }
+}
+
+pdf = PagePrint.render(
+  "<link rel=\"stylesheet\" href=\"asset:pdf.css\"><h1>Report</h1>",
+  resource_fetcher: ->(url) { assets[url] }
+)
+```
+
+The fetcher receives each resolved URL and returns `{ content:, mime_type: }` or `nil`. Returning `nil` skips the resource. This makes resource access explicit, but it does not make untrusted HTML safe; see [Security](docs/production.md#security).
+
+## Configuration
+
+The common rendering options are:
+
+```ruby
+PagePrint.render(
+  html,
+  base_url: "https://example.test",
+  page_size: :letter,
+  margins: :narrow,
+  media: :print,
+  metadata: { title: "Quarterly report" },
+  resource_fetcher: fetcher
+)
+```
+
+Defaults are A4 paper, normal margins, and print media. See the [configuration reference](docs/configuration.md) for every preset, custom dimensions, metadata fields, global configuration, and resource fetcher behavior.
+
+## Performance
+
+The repository includes a reproducible benchmark against PDFKit using the same static HTML input. On May 30, 2026, the recorded run used Ruby 3.4.7 on an Apple Silicon development machine:
+
+| Renderer | Average wall time | P95 wall time | Average peak RSS |
+| --- | ---: | ---: | ---: |
+| PagePrint | 78.2 ms | 89.6 ms | 42.1 MB |
+| PDFKit | 782.2 ms | 2,127.1 ms | 59.4 MB |
+
+These numbers are illustrative, not a capacity guarantee. Rendering cost varies significantly with fonts, images, document length, and host configuration. Run the benchmark—or your own production templates—on the deployment target before sizing infrastructure.
 
 ```sh
+RUNS=30 WARMUPS=3 bundle exec ruby benchmark/pdf_renderers.rb
+```
+
+See [benchmark/README.md](benchmark/README.md) for methodology and CSV output.
+
+## Documentation
+
+- [Configuration and API reference](docs/configuration.md)
+- [Production guide](docs/production.md)
+- [Benchmark methodology](benchmark/README.md)
+- [PlutoBook feature matrix](https://github.com/plutoprint/plutobook/blob/main/FEATURES.md)
+
+## Development
+
+Install dependencies, compile the extension, and run the test suite:
+
+```sh
+bundle install
 bundle exec rake
 ```
 
-## Local Build
+Use `bin/console` for an IRB session with the extension compiled and PagePrint loaded.
 
-Build and install locally:
+## License
 
-```sh
-gem build page_print.gemspec
-gem install ./page_print-*.gem
-```
-
-## Releasing
-
-Publish a new version with:
-
-```sh
-bin/bump 0.1.6
-```
-
-That updates `lib/page_print/version.rb` and `Gemfile.lock`, commits `Release 0.1.6`, creates annotated tag `v0.1.6`, and pushes `main` plus the tag. Requires a clean worktree on `main`.
-
-The Package workflow then builds the source and platform gems, pushes them to RubyGems (trusted publishing / OIDC, GitHub environment `release`), and creates a GitHub Release with the gem artifacts and commit notes since the previous `v*` tag.
-
-## Building Native Gems
-
-Build an `x86_64-linux` platform gem with a vendored PlutoBook library:
-
-```sh
-bundle exec rake package:linux
-```
-
-Build an Apple Silicon macOS platform gem with a vendored PlutoBook library:
-
-```sh
-bundle exec rake package:darwin_arm64
-```
-
-These tasks check out PlutoBook `v0.19.0`, build it into `lib/page_print/vendor/<platform>`, and write a platform gem to `pkg/`. Platform gems compile the Ruby extension during gem install to avoid tying the gem to the build machine's Ruby version.
-
-Native gems bundle PlutoBook and its non-system shared library dependencies. Optional PlutoBook features for curl, TurboJPEG, and WebP are disabled to keep the bundled dependency set smaller.
-
-The packaging tasks expect PlutoBook's build dependencies to be installed on the build machine, including Meson, Ninja, pkg-config, Cairo, FreeType, HarfBuzz, Fontconfig, Expat, and ICU.
+PagePrint is available under the [MIT License](LICENSE).
