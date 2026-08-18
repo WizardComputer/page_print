@@ -2,6 +2,7 @@
 #include "ruby/encoding.h"
 #include "ruby/thread.h"
 #include <limits.h>
+#include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include <plutobook/plutobook.h>
@@ -224,6 +225,14 @@ static plutobook_page_size_t pageprint_page_size_from_value(VALUE value)
         width_number = NUM2DBL(width);
         height_number = NUM2DBL(height);
 
+        if (!isfinite(width_number)) {
+            rb_raise(rb_eArgError, "page_size width must be finite");
+        }
+
+        if (!isfinite(height_number)) {
+            rb_raise(rb_eArgError, "page_size height must be finite");
+        }
+
         if (width_number <= 0) {
             rb_raise(rb_eArgError, "page_size width must be greater than 0");
         }
@@ -295,6 +304,10 @@ static plutobook_page_margins_t pageprint_margins_from_value(VALUE value)
         right_number = NUM2DBL(right);
         bottom_number = NUM2DBL(bottom);
         left_number = NUM2DBL(left);
+
+        if (!isfinite(top_number) || !isfinite(right_number) || !isfinite(bottom_number) || !isfinite(left_number)) {
+            rb_raise(rb_eArgError, "margins values must be finite");
+        }
 
         if (top_number < 0 || right_number < 0 || bottom_number < 0 || left_number < 0) {
             rb_raise(rb_eArgError, "margins values must be greater than or equal to 0");

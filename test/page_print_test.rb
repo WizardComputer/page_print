@@ -784,6 +784,20 @@ class PagePrintTest < Minitest::Test
     assert_equal 'page_size width must be greater than 0', error.message
   end
 
+  def test_render_to_file_rejects_non_finite_custom_page_size
+    [[Float::NAN, 150, 'width'], [100, Float::INFINITY, 'height']].each do |width, height, dimension|
+      error = assert_raises(ArgumentError) do
+        PagePrint.render_to_file(
+          '<html><body><h1>Hello</h1></body></html>',
+          'output.pdf',
+          page_size: { width: width, height: height, unit: :mm }
+        )
+      end
+
+      assert_equal "page_size #{dimension} must be finite", error.message
+    end
+  end
+
   def test_render_to_file_rejects_invalid_margins
     error = assert_raises(ArgumentError) do
       PagePrint.render_to_file('<html><body><h1>Hello</h1></body></html>', 'output.pdf', margins: :compact)
@@ -814,6 +828,20 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'margins values must be greater than or equal to 0', error.message
+  end
+
+  def test_render_to_file_rejects_non_finite_custom_margins
+    [Float::NAN, Float::INFINITY, -Float::INFINITY].each do |value|
+      error = assert_raises(ArgumentError) do
+        PagePrint.render_to_file(
+          '<html><body><h1>Hello</h1></body></html>',
+          'output.pdf',
+          margins: { top: 1, right: value, bottom: 1, left: 1, unit: :mm }
+        )
+      end
+
+      assert_equal 'margins values must be finite', error.message
+    end
   end
 
   def test_render_to_file_rejects_invalid_media
