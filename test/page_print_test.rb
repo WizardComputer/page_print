@@ -517,6 +517,29 @@ class PagePrintTest < Minitest::Test
     assert_equal 'fetch failed', error.message
   end
 
+  def test_render_preserves_first_resource_fetcher_error
+    calls = []
+    html = <<~HTML
+      <html><head>
+        <link rel="stylesheet" href="custom:first">
+        <link rel="stylesheet" href="custom:second">
+      </head><body><h1>Hello</h1></body></html>
+    HTML
+
+    error = assert_raises(RuntimeError) do
+      PagePrint.render(
+        html,
+        resource_fetcher: lambda { |url|
+          calls << url
+          raise calls.one? ? 'first fetch failed' : 'later fetch failed'
+        }
+      )
+    end
+
+    assert_equal 'first fetch failed', error.message
+    assert_equal 1, calls.length
+  end
+
   def test_render_denies_network_fetch_when_resource_fetcher_returns_nil
     html = '<html><head><link rel="stylesheet" href="http://example.com/style.css"></head><body></body></html>'
     urls = []

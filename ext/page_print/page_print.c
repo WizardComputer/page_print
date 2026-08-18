@@ -56,6 +56,7 @@ typedef struct {
 
 typedef struct {
     VALUE object;
+    VALUE error;
     int state;
 } pageprint_resource_fetcher_t;
 
@@ -67,10 +68,12 @@ typedef struct {
 
 typedef struct {
     VALUE output;
+    VALUE error;
     int state;
 } pageprint_pdf_string_output_t;
 
 typedef struct {
+    pageprint_pdf_string_output_t *owner;
     VALUE output;
     const char *data;
     unsigned int length;
@@ -166,6 +169,12 @@ static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error_with_path(VALUE e
     }
 
     rb_raise(error_class, "%s %s", message, path);
+}
+
+static void PAGEPRINT_NORETURN pageprint_jump_callback_error(int state, VALUE error)
+{
+    rb_set_errinfo(error);
+    rb_jump_tag(state);
 }
 
 static double pageprint_unit_factor_from_value(VALUE value, const char *name)
@@ -450,11 +459,17 @@ static void *pageprint_write_pdf_without_gvl(void *ptr)
 static void *pageprint_append_pdf_string_with_gvl(void *ptr)
 {
     pageprint_pdf_string_append_t *append = ptr;
+    pageprint_pdf_string_output_t *output = append->owner;
     int state = 0;
 
     rb_protect(pageprint_append_pdf_string, (VALUE)append, &state);
 
-    return (void *)(intptr_t)state;
+    if (state && !output->state) {
+        output->state = state;
+        output->error = rb_errinfo();
+    }
+
+    return NULL;
 }
 
 static void *pageprint_write_pdf_stream_without_gvl(void *ptr)
@@ -532,24 +547,31 @@ static void *pageprint_call_resource_fetcher_with_gvl(void *ptr)
 
     rb_protect(pageprint_call_resource_fetcher, (VALUE)args, &state);
 
-    return (void *)(intptr_t)state;
+    if (state && !args->fetcher->state) {
+        args->fetcher->state = state;
+        args->fetcher->error = rb_errinfo();
+    }
+
+    return NULL;
 }
 
 static plutobook_resource_data_t *pageprint_fetch_resource(void *closure, const char *url)
 {
     pageprint_resource_fetcher_t *fetcher = closure;
     pageprint_resource_fetch_args_t args;
-    int state;
+
+    if (fetcher->state) {
+        return NULL;
+    }
 
     if (!NIL_P(fetcher->object)) {
         args.fetcher = fetcher;
         args.url = url;
         args.resource = NULL;
 
-        state = (int)(intptr_t)rb_thread_call_with_gvl(pageprint_call_resource_fetcher_with_gvl, &args);
+        rb_thread_call_with_gvl(pageprint_call_resource_fetcher_with_gvl, &args);
 
-        if (state) {
-            fetcher->state = state;
+        if (fetcher->state) {
             plutobook_set_error_message("failed to fetch URL '%s'", url);
             return NULL;
         }
@@ -689,6 +711,7 @@ static void pageprint_create_book_from_html(VALUE html, VALUE options, pageprint
     }
 
     context->resource_fetcher_state.object = context->resource_fetcher;
+    context->resource_fetcher_state.error = Qnil;
     context->resource_fetcher_state.state = 0;
 
     plutobook_set_custom_resource_fetcher(context->book, pageprint_fetch_resource, &context->resource_fetcher_state);
@@ -721,14 +744,20 @@ static void pageprint_create_book_from_html(VALUE html, VALUE options, pageprint
 
     if (!load_args.ok) {
         if (context->resource_fetcher_state.state) {
-            rb_jump_tag(context->resource_fetcher_state.state);
+            pageprint_jump_callback_error(
+                context->resource_fetcher_state.state,
+                context->resource_fetcher_state.error
+            );
         }
 
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to load HTML into plutobook");
     }
 
     if (context->resource_fetcher_state.state) {
-        rb_jump_tag(context->resource_fetcher_state.state);
+        pageprint_jump_callback_error(
+            context->resource_fetcher_state.state,
+            context->resource_fetcher_state.error
+        );
     }
 
     {
@@ -760,16 +789,19 @@ static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const
 {
     pageprint_pdf_string_output_t *output = closure;
     pageprint_pdf_string_append_t append;
-    int state;
 
+    if (output->state) {
+        return PLUTOBOOK_STREAM_STATUS_WRITE_ERROR;
+    }
+
+    append.owner = output;
     append.output = output->output;
     append.data = data;
     append.length = length;
 
-    state = (int)(intptr_t)rb_thread_call_with_gvl(pageprint_append_pdf_string_with_gvl, &append);
+    rb_thread_call_with_gvl(pageprint_append_pdf_string_with_gvl, &append);
 
-    if (state) {
-        output->state = state;
+    if (output->state) {
         return PLUTOBOOK_STREAM_STATUS_WRITE_ERROR;
     }
 
@@ -814,11 +846,15 @@ static VALUE pageprint_render_to_file_body(VALUE value)
 
     RB_GC_GUARD(context->path);
     RB_GC_GUARD(context->book_context.resource_fetcher);
+    RB_GC_GUARD(context->book_context.resource_fetcher_state.error);
     RB_GC_GUARD(context->html);
     RB_GC_GUARD(context->options);
 
     if (context->book_context.resource_fetcher_state.state) {
-        rb_jump_tag(context->book_context.resource_fetcher_state.state);
+        pageprint_jump_callback_error(
+            context->book_context.resource_fetcher_state.state,
+            context->book_context.resource_fetcher_state.error
+        );
     }
 
     if (!write_args.ok) {
@@ -872,16 +908,21 @@ static VALUE pageprint_render_body(VALUE value)
     );
 
     RB_GC_GUARD(context->book_context.resource_fetcher);
+    RB_GC_GUARD(context->book_context.resource_fetcher_state.error);
     RB_GC_GUARD(context->output.output);
+    RB_GC_GUARD(context->output.error);
     RB_GC_GUARD(context->html);
     RB_GC_GUARD(context->options);
 
     if (context->book_context.resource_fetcher_state.state) {
-        rb_jump_tag(context->book_context.resource_fetcher_state.state);
+        pageprint_jump_callback_error(
+            context->book_context.resource_fetcher_state.state,
+            context->book_context.resource_fetcher_state.error
+        );
     }
 
     if (context->output.state) {
-        rb_jump_tag(context->output.state);
+        pageprint_jump_callback_error(context->output.state, context->output.error);
     }
 
     if (!write_args.ok) {
@@ -900,6 +941,7 @@ static VALUE pageprint_render(int argc, VALUE *argv, VALUE self)
     context.html = argv[0];
     context.options = argc == 2 ? argv[1] : Qnil;
     context.output.output = rb_str_new(NULL, 0);
+    context.output.error = Qnil;
     context.output.state = 0;
     rb_enc_associate_index(context.output.output, rb_ascii8bit_encindex());
 
