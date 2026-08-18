@@ -118,7 +118,7 @@ jobs:
       PAGE_PRINT_PLUTOBOOK_PREFIX: ${{ github.workspace }}/tmp/plutobook-sanitizer-install
       PKG_CONFIG_PATH: ${{ github.workspace }}/tmp/plutobook-sanitizer-install/lib/pkgconfig
       LD_LIBRARY_PATH: ${{ github.workspace }}/tmp/plutobook-sanitizer-install/lib
-      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1:use_sigaltstack=0
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
       PAGE_PRINT_CONCURRENCY_ITERATIONS: 10
 
