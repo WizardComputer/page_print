@@ -111,6 +111,74 @@ jobs:
             --with-plutobook-lib="$PAGE_PRINT_PLUTOBOOK_PREFIX/lib"
           bundle exec rake test
 
+  native-sanitizers:
+    runs-on: ubuntu-22.04
+
+    env:
+      PAGE_PRINT_PLUTOBOOK_PREFIX: ${{ github.workspace }}/tmp/plutobook-sanitizer-install
+      PKG_CONFIG_PATH: ${{ github.workspace }}/tmp/plutobook-sanitizer-install/lib/pkgconfig
+      LD_LIBRARY_PATH: ${{ github.workspace }}/tmp/plutobook-sanitizer-install/lib
+      ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      PAGE_PRINT_CONCURRENCY_ITERATIONS: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            pkg-config \
+            ninja-build \
+            pipx \
+            python3-pip \
+            libcairo2-dev \
+            libexpat1-dev \
+            libicu-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev
+          pipx install meson==1.3.2
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Build PlutoBook with sanitizers
+        run: |
+          git clone --depth 1 --branch v0.19.0 https://github.com/plutoprint/plutobook.git tmp/plutobook-sanitizer-src
+          meson setup tmp/plutobook-sanitizer-build tmp/plutobook-sanitizer-src \
+            --prefix="$PAGE_PRINT_PLUTOBOOK_PREFIX" \
+            --libdir=lib \
+            --buildtype=debugoptimized \
+            -Db_sanitize=address,undefined \
+            -Dcpp_args="['-include', 'memory_resource']" \
+            --force-fallback-for=harfbuzz \
+            -Dcurl=disabled \
+            -Dturbojpeg=disabled \
+            -Dwebp=disabled \
+            -Dtools=disabled \
+            -Dtests=disabled \
+            -Dexamples=disabled
+          meson compile -C tmp/plutobook-sanitizer-build
+          meson install -C tmp/plutobook-sanitizer-build
+
+      - name: Compile extension and run tests with sanitizers
+        env:
+          CFLAGS: -fsanitize=address,undefined -fno-omit-frame-pointer
+          LDFLAGS: -fsanitize=address,undefined
+        run: |
+          export LD_PRELOAD="$(gcc -print-file-name=libasan.so)"
+          bundle exec rake compile -- \
+            --with-plutobook-include="$PAGE_PRINT_PLUTOBOOK_PREFIX/include" \
+            --with-plutobook-lib="$PAGE_PRINT_PLUTOBOOK_PREFIX/lib"
+          bundle exec rake test
+
   build-plutobook-macos:
     runs-on: macos-14
 
