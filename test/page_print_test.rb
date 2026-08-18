@@ -240,6 +240,33 @@ class PagePrintTest < Minitest::Test
     end
   end
 
+  def test_render_uses_copies_when_input_strings_are_mutated_during_native_work
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'output.pdf')
+      mutated_path = File.join(dir, 'mutated.pdf')
+      html = +'<html><head><link rel="stylesheet" href="/style.css"></head><body><h1>Hello</h1></body></html>'
+      base_url = +'http://example.com'
+      fetched = false
+
+      assert PagePrint.render_to_file(
+        html,
+        output_path,
+        base_url: base_url,
+        resource_fetcher: lambda { |_url|
+          fetched = true
+          html.replace('mutated')
+          base_url.replace('http://mutated.example')
+          output_path.replace(mutated_path)
+          { content: 'body { color: green; }', mime_type: 'text/css' }
+        }
+      )
+
+      assert fetched
+      assert File.exist?(File.join(dir, 'output.pdf'))
+      refute File.exist?(mutated_path)
+    end
+  end
+
   def test_render_to_file_accepts_custom_page_size_and_margins
     Dir.mktmpdir do |dir|
       output_path = File.join(dir, 'output.pdf')
@@ -530,6 +557,61 @@ class PagePrintTest < Minitest::Test
     end
 
     assert_equal 'html must not be empty', error.message
+  end
+
+  def test_render_rejects_embedded_nul_in_html
+    error = assert_raises(ArgumentError) do
+      PagePrint.render("<html>\0</html>")
+    end
+
+    assert_equal 'html must not contain NUL bytes', error.message
+  end
+
+  def test_render_rejects_embedded_nul_in_base_url
+    error = assert_raises(ArgumentError) do
+      PagePrint.render('<html><body>Hello</body></html>', base_url: "http://example.com\0.invalid")
+    end
+
+    assert_equal 'base_url must not contain NUL bytes', error.message
+  end
+
+  def test_render_to_file_rejects_embedded_nul_in_path
+    error = assert_raises(ArgumentError) do
+      PagePrint.render_to_file('<html><body>Hello</body></html>', "output.pdf\0.invalid")
+    end
+
+    assert_equal 'path must not contain NUL bytes', error.message
+  end
+
+  def test_render_cleans_up_after_asynchronous_interruption
+    entered_fetcher = Queue.new
+    html = '<html><head><link rel="stylesheet" href="custom:style"></head><body>Hello</body></html>'
+    rendering = Thread.new do
+      PagePrint.render(
+        html,
+        resource_fetcher: lambda { |_url|
+          entered_fetcher << true
+          sleep
+        }
+      )
+    end
+    rendering.report_on_exception = false
+
+    entered_fetcher.pop
+    rendering.raise(RuntimeError, 'stop rendering')
+
+    error = assert_raises(RuntimeError) { rendering.value }
+    assert_equal 'stop rendering', error.message
+
+    pdf = PagePrint.render('<html><body>Hello</body></html>')
+    assert_equal '%PDF', pdf.byteslice(0, 4)
+  ensure
+    rendering&.kill
+    begin
+      rendering&.join
+    rescue RuntimeError
+      nil
+    end
   end
 
   def test_render_rejects_html_larger_than_int_max

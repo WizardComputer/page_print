@@ -3,6 +3,7 @@
 #include "ruby/thread.h"
 #include <limits.h>
 #include <stdint.h>
+#include <string.h>
 #include <plutobook/plutobook.h>
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -102,9 +103,48 @@ typedef struct {
     VALUE metadata;
 } pageprint_apply_metadata_args_t;
 
+typedef struct {
+    plutobook_t *book;
+    VALUE html;
+    VALUE base_url;
+    VALUE resource_fetcher;
+    VALUE metadata;
+    pageprint_resource_fetcher_t resource_fetcher_state;
+} pageprint_book_context_t;
+
+typedef struct {
+    pageprint_book_context_t book_context;
+    VALUE html;
+    VALUE path;
+    VALUE options;
+} pageprint_render_to_file_context_t;
+
+typedef struct {
+    pageprint_book_context_t book_context;
+    VALUE html;
+    VALUE options;
+    pageprint_pdf_string_output_t output;
+} pageprint_render_context_t;
+
 static VALUE pageprint_append_pdf_string(VALUE value);
 static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const char *data, unsigned int length);
 static plutobook_resource_data_t *pageprint_fetch_resource(void *closure, const char *url);
+
+static void pageprint_reject_embedded_nul(VALUE value, const char *name)
+{
+    if (memchr(RSTRING_PTR(value), '\0', (size_t)RSTRING_LEN(value))) {
+        rb_raise(rb_eArgError, "%s must not contain NUL bytes", name);
+    }
+}
+
+static VALUE pageprint_frozen_string_copy(VALUE value)
+{
+    VALUE copy = rb_str_dup(value);
+
+    rb_obj_freeze(copy);
+
+    return copy;
+}
 
 static void PAGEPRINT_NORETURN pageprint_raise_plutobook_error(VALUE error_class, const char *message)
 {
@@ -608,15 +648,11 @@ static pageprint_options_t pageprint_options_from_value(VALUE options)
     return result;
 }
 
-static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, pageprint_resource_fetcher_t *resource_fetcher)
+static void pageprint_create_book_from_html(VALUE html, VALUE options, pageprint_book_context_t *context)
 {
     pageprint_options_t pageprint_options;
-
-    const char *html_str;
     const char *base_url_str;
     long html_len;
-
-    plutobook_t *book;
     pageprint_load_html_args_t load_args;
 
     if (!RB_TYPE_P(html, T_STRING)) {
@@ -631,44 +667,47 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
         rb_raise(rb_eArgError, "html is too large");
     }
 
+    pageprint_reject_embedded_nul(html, "html");
     pageprint_options = pageprint_options_from_value(options);
+    context->html = pageprint_frozen_string_copy(html);
+    context->base_url = Qnil;
+    context->resource_fetcher = pageprint_options.resource_fetcher;
+    context->metadata = pageprint_options.metadata;
 
-    html_str = RSTRING_PTR(html);
-    html_len = RSTRING_LEN(html);
+    if (!NIL_P(pageprint_options.base_url)) {
+        pageprint_reject_embedded_nul(pageprint_options.base_url, "base_url");
+        context->base_url = pageprint_frozen_string_copy(pageprint_options.base_url);
+    }
+
+    html_len = RSTRING_LEN(context->html);
 
     /* 1. Create */
-    book = plutobook_create(pageprint_options.page_size, pageprint_options.margins, pageprint_options.media);
+    context->book = plutobook_create(pageprint_options.page_size, pageprint_options.margins, pageprint_options.media);
 
-    if (!book) {
+    if (!context->book) {
         rb_raise(rb_eRuntimeError, "failed to create plutobook");
     }
 
-    resource_fetcher->object = pageprint_options.resource_fetcher;
-    resource_fetcher->state = 0;
+    context->resource_fetcher_state.object = context->resource_fetcher;
+    context->resource_fetcher_state.state = 0;
 
-    plutobook_set_custom_resource_fetcher(book, pageprint_fetch_resource, resource_fetcher);
+    plutobook_set_custom_resource_fetcher(context->book, pageprint_fetch_resource, &context->resource_fetcher_state);
 
     /* 2. Load HTML */
     plutobook_clear_error_message();
 
     base_url_str = "";
-    if (!NIL_P(pageprint_options.base_url)) {
-        base_url_str = StringValueCStr(pageprint_options.base_url);
+    if (!NIL_P(context->base_url)) {
+        base_url_str = RSTRING_PTR(context->base_url);
     }
 
-    load_args.book = book;
-    load_args.html = html_str;
+    load_args.book = context->book;
+    load_args.html = RSTRING_PTR(context->html);
     load_args.length = (int)html_len;
     load_args.user_style = "";
     load_args.user_script = "";
     load_args.base_url = base_url_str;
     load_args.ok = 0;
-
-    RB_GC_GUARD(html);
-    RB_GC_GUARD(options);
-    RB_GC_GUARD(pageprint_options.base_url);
-    RB_GC_GUARD(pageprint_options.resource_fetcher);
-    RB_GC_GUARD(pageprint_options.metadata);
 
     rb_thread_call_without_gvl(
         pageprint_load_html_without_gvl,
@@ -677,37 +716,35 @@ static plutobook_t *pageprint_create_book_from_html(VALUE html, VALUE options, p
         NULL
     );
 
-    if (!load_args.ok) {
-        plutobook_destroy(book);
+    RB_GC_GUARD(context->html);
+    RB_GC_GUARD(context->base_url);
 
-        if (resource_fetcher->state) {
-            rb_jump_tag(resource_fetcher->state);
+    if (!load_args.ok) {
+        if (context->resource_fetcher_state.state) {
+            rb_jump_tag(context->resource_fetcher_state.state);
         }
 
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to load HTML into plutobook");
     }
 
-    if (resource_fetcher->state) {
-        plutobook_destroy(book);
-        rb_jump_tag(resource_fetcher->state);
+    if (context->resource_fetcher_state.state) {
+        rb_jump_tag(context->resource_fetcher_state.state);
     }
 
     {
         pageprint_apply_metadata_args_t metadata_args;
         int metadata_state = 0;
 
-        metadata_args.book = book;
-        metadata_args.metadata = pageprint_options.metadata;
+        metadata_args.book = context->book;
+        metadata_args.metadata = context->metadata;
 
         rb_protect(pageprint_apply_metadata_with_gvl, (VALUE)&metadata_args, &metadata_state);
+        RB_GC_GUARD(context->metadata);
 
         if (metadata_state) {
-            plutobook_destroy(book);
             rb_jump_tag(metadata_state);
         }
     }
-
-    return book;
 }
 
 static VALUE pageprint_append_pdf_string(VALUE value)
@@ -739,45 +776,34 @@ static plutobook_stream_status_t pageprint_write_pdf_string(void *closure, const
     return PLUTOBOOK_STREAM_STATUS_SUCCESS;
 }
 
-static VALUE pageprint_render_to_file(int argc, VALUE *argv, VALUE self) {
-    VALUE html;
-    VALUE path;
-    VALUE options;
+static VALUE pageprint_destroy_book(VALUE value)
+{
+    pageprint_book_context_t *context = (pageprint_book_context_t *)value;
+    plutobook_t *book = context->book;
 
+    context->book = NULL;
+
+    if (book) {
+        plutobook_destroy(book);
+    }
+
+    return Qnil;
+}
+
+static VALUE pageprint_render_to_file_body(VALUE value)
+{
+    pageprint_render_to_file_context_t *context = (pageprint_render_to_file_context_t *)value;
     const char *path_str;
-
-    plutobook_t *book;
-    pageprint_resource_fetcher_t resource_fetcher;
     pageprint_write_pdf_args_t write_args;
 
-    rb_check_arity(argc, 2, 3);
-
-    html = argv[0];
-    path = argv[1];
-    options = argc == 3 ? argv[2] : Qnil;
-
-    if (!RB_TYPE_P(path, T_STRING)) {
-        rb_raise(rb_eTypeError, "path must be a String");
-    }
-
-    if (RSTRING_LEN(path) == 0) {
-        rb_raise(rb_eArgError, "path must not be empty");
-    }
-
-    path_str = StringValueCStr(path);
-
-    book = pageprint_create_book_from_html(html, options, &resource_fetcher);
+    pageprint_create_book_from_html(context->html, context->options, &context->book_context);
+    path_str = RSTRING_PTR(context->path);
 
     plutobook_clear_error_message();
 
-    write_args.book = book;
+    write_args.book = context->book_context.book;
     write_args.path = path_str;
     write_args.ok = 0;
-
-    RB_GC_GUARD(html);
-    RB_GC_GUARD(options);
-    RB_GC_GUARD(resource_fetcher.object);
-    RB_GC_GUARD(path);
 
     rb_thread_call_without_gvl(
         pageprint_write_pdf_without_gvl,
@@ -786,10 +812,13 @@ static VALUE pageprint_render_to_file(int argc, VALUE *argv, VALUE self) {
         NULL
     );
 
-    plutobook_destroy(book);
+    RB_GC_GUARD(context->path);
+    RB_GC_GUARD(context->book_context.resource_fetcher);
+    RB_GC_GUARD(context->html);
+    RB_GC_GUARD(context->options);
 
-    if (resource_fetcher.state) {
-        rb_jump_tag(resource_fetcher.state);
+    if (context->book_context.resource_fetcher_state.state) {
+        rb_jump_tag(context->book_context.resource_fetcher_state.state);
     }
 
     if (!write_args.ok) {
@@ -799,35 +828,41 @@ static VALUE pageprint_render_to_file(int argc, VALUE *argv, VALUE self) {
     return Qtrue;
 }
 
-static VALUE pageprint_render(int argc, VALUE *argv, VALUE self) {
-    VALUE html;
-    VALUE options;
-    pageprint_pdf_string_output_t output;
+static VALUE pageprint_render_to_file(int argc, VALUE *argv, VALUE self)
+{
+    pageprint_render_to_file_context_t context = { 0 };
 
-    plutobook_t *book;
-    pageprint_resource_fetcher_t resource_fetcher;
+    rb_check_arity(argc, 2, 3);
+
+    context.html = argv[0];
+    context.options = argc == 3 ? argv[2] : Qnil;
+
+    if (!RB_TYPE_P(argv[1], T_STRING)) {
+        rb_raise(rb_eTypeError, "path must be a String");
+    }
+
+    if (RSTRING_LEN(argv[1]) == 0) {
+        rb_raise(rb_eArgError, "path must not be empty");
+    }
+
+    pageprint_reject_embedded_nul(argv[1], "path");
+    context.path = pageprint_frozen_string_copy(argv[1]);
+
+    return rb_ensure(pageprint_render_to_file_body, (VALUE)&context, pageprint_destroy_book, (VALUE)&context.book_context);
+}
+
+static VALUE pageprint_render_body(VALUE value)
+{
+    pageprint_render_context_t *context = (pageprint_render_context_t *)value;
     pageprint_write_pdf_stream_args_t write_args;
 
-    rb_check_arity(argc, 1, 2);
-
-    html = argv[0];
-    options = argc == 2 ? argv[1] : Qnil;
-    output.output = rb_str_new(NULL, 0);
-    output.state = 0;
-    rb_enc_associate_index(output.output, rb_ascii8bit_encindex());
-
-    book = pageprint_create_book_from_html(html, options, &resource_fetcher);
+    pageprint_create_book_from_html(context->html, context->options, &context->book_context);
 
     plutobook_clear_error_message();
 
-    write_args.book = book;
-    write_args.output = &output;
+    write_args.book = context->book_context.book;
+    write_args.output = &context->output;
     write_args.ok = 0;
-
-    RB_GC_GUARD(html);
-    RB_GC_GUARD(options);
-    RB_GC_GUARD(resource_fetcher.object);
-    RB_GC_GUARD(output.output);
 
     rb_thread_call_without_gvl(
         pageprint_write_pdf_stream_without_gvl,
@@ -836,21 +871,39 @@ static VALUE pageprint_render(int argc, VALUE *argv, VALUE self) {
         NULL
     );
 
-    plutobook_destroy(book);
+    RB_GC_GUARD(context->book_context.resource_fetcher);
+    RB_GC_GUARD(context->output.output);
+    RB_GC_GUARD(context->html);
+    RB_GC_GUARD(context->options);
 
-    if (resource_fetcher.state) {
-        rb_jump_tag(resource_fetcher.state);
+    if (context->book_context.resource_fetcher_state.state) {
+        rb_jump_tag(context->book_context.resource_fetcher_state.state);
     }
 
-    if (output.state) {
-        rb_jump_tag(output.state);
+    if (context->output.state) {
+        rb_jump_tag(context->output.state);
     }
 
     if (!write_args.ok) {
         pageprint_raise_plutobook_error(rb_eRuntimeError, "failed to write PDF to string");
     }
 
-    return output.output;
+    return context->output.output;
+}
+
+static VALUE pageprint_render(int argc, VALUE *argv, VALUE self)
+{
+    pageprint_render_context_t context = { 0 };
+
+    rb_check_arity(argc, 1, 2);
+
+    context.html = argv[0];
+    context.options = argc == 2 ? argv[1] : Qnil;
+    context.output.output = rb_str_new(NULL, 0);
+    context.output.state = 0;
+    rb_enc_associate_index(context.output.output, rb_ascii8bit_encindex());
+
+    return rb_ensure(pageprint_render_body, (VALUE)&context, pageprint_destroy_book, (VALUE)&context.book_context);
 }
 
 void Init_page_print(void) {
