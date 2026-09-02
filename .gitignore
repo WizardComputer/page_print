@@ -14,3 +14,4 @@
 /pkg/
 /tmp/
 /.ruby-lsp/
+/.amp/portals/*
