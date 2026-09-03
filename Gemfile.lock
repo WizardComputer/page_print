@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    page_print (0.1.11)
+    page_print (0.1.10)
 
 GEM
   remote: https://rubygems.org/

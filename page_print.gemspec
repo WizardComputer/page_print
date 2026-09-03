@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
     File.directory?(path) ||
       path.start_with?('lib/page_print/vendor/') ||
       path.match?(%r{/(?:Makefile|mkmf\.log|.*\.(?:o|bundle))\z})
-  end + Dir.glob('docs/*.md') + ['README.md', 'CHANGELOG.md', 'LICENSE']
+  end + Dir.glob('docs/*.md') + ['README.md', 'LICENSE']
   spec.bindir = 'exe'
   spec.executables = []
   spec.require_paths = ['lib']
