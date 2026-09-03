@@ -996,6 +996,6 @@ void Init_page_print(void) {
     id_mm = rb_intern_const("mm");
     id_px = rb_intern_const("px");
 
-    rb_define_singleton_method(mPagePrint, "render_to_file", RUBY_METHOD_FUNC(pageprint_render_to_file), -1);
-    rb_define_singleton_method(mPagePrint, "render", RUBY_METHOD_FUNC(pageprint_render), -1);
+    rb_define_singleton_method(mPagePrint, "render_to_file", pageprint_render_to_file, -1);
+    rb_define_singleton_method(mPagePrint, "render", pageprint_render, -1);
 }
