@@ -303,7 +303,7 @@ class PagePrintTest < Minitest::Test
       output_path = File.join(dir, 'output.pdf')
 
       assert PagePrint.render_to_file(
-        '<html><body><h1>Hello</h1></body></html>',
+        '<html><head><title>HTML title</title><meta name="author" content="HTML author"></head><body>Hello</body></html>',
         output_path,
         metadata: {
           title: 'Test PDF',
@@ -350,7 +350,7 @@ class PagePrintTest < Minitest::Test
 
   def test_render_accepts_metadata
     pdf = PagePrint.render(
-      '<html><body><h1>Hello</h1></body></html>',
+      '<html><head><title>HTML title</title><meta name="author" content="HTML author"></head><body>Hello</body></html>',
       metadata: {
         title: 'Test PDF',
         author: 'PagePrint',
@@ -363,6 +363,15 @@ class PagePrintTest < Minitest::Test
 
     assert_operator pdf.bytesize, :>, 0
     assert_equal '%PDF', pdf.byteslice(0, 4)
+
+    Dir.mktmpdir do |dir|
+      output_path = File.join(dir, 'output.pdf')
+      File.binwrite(output_path, pdf)
+
+      info = pdfinfo(output_path)
+      assert_includes info, 'Title:           Test PDF'
+      assert_includes info, 'Author:          PagePrint'
+    end
   end
 
   def test_render_accepts_nil_metadata

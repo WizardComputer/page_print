@@ -32,7 +32,7 @@ PDFKit and Wicked PDF are Ruby integrations for `wkhtmltopdf`; their rendering b
 | Network access | Denied unless your fetcher supplies the resource | Built in |
 | CSS compatibility | Print-focused and partial; no CSS Grid | Limited by the old WebKit engine |
 | Operational footprint | Native gem and bundled libraries on supported platforms | `wkhtmltopdf` binary plus Qt/WebKit dependencies |
-| Upstream status | PagePrint currently packages PlutoBook 0.19.0 | `wkhtmltopdf` was archived in 2023 |
+| Upstream status | PagePrint currently packages PlutoBook 0.20.0 | `wkhtmltopdf` was archived in 2023 |
 
 PagePrint is a strong fit when you control the templates, value predictable print layout, and do not need JavaScript. Stay with a `wkhtmltopdf`-based gem if your existing templates depend on its JavaScript or WebKit-specific rendering behavior. When migrating, compare representative output carefully because changing engines can alter pagination, fonts, and layout.
 

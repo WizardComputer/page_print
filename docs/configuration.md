@@ -48,6 +48,8 @@ PagePrint.render(html, base_url: "https://example.test", resource_fetcher: fetch
 
 The fetcher receives `https://example.test/assets/report.css`. A base URL resolves the URL; it does not enable network access.
 
+With PlutoBook 0.20.0, relative resource URLs no longer resolve against the process working directory when no base URL is supplied. Use an explicit absolute base URL, such as `https://example.test/assets/` or `file:///absolute/assets/`, with a trailing slash for a directory.
+
 Set an application-wide default when rendering outside Rails:
 
 ```ruby

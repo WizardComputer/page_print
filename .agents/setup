@@ -8,7 +8,7 @@ step() {
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ruby_version="$(<"$repo_root/.ruby-version")"
 bundler_version="$(awk '/^BUNDLED WITH$/ { getline; gsub(/^[[:space:]]+/, ""); print; exit }' "$repo_root/Gemfile.lock")"
-plutobook_version="0.19.0"
+plutobook_version="0.20.0"
 plutobook_build_id="$plutobook_version-system-harfbuzz"
 plutobook_prefix="$repo_root/tmp/plutobook-orb-install"
 mise_bin="$HOME/.local/bin/mise"
