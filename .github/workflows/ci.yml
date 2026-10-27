@@ -238,7 +238,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install test dependencies
-        run: brew install poppler
+        run: |
+          brew update
+          # Match the shared libraries used by build-plutobook-macos.
+          brew install pkg-config cairo freetype harfbuzz fontconfig expat icu4c poppler
+
+      - name: Configure Homebrew pkg-config paths
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix icu4c)/lib/pkgconfig:$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@v4
         with:
