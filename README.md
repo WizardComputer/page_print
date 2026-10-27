@@ -55,7 +55,7 @@ bundle install
 PagePrint requires Ruby 3.2 or newer. Native gems with vendored PlutoBook libraries are published for:
 
 - `x86_64-linux`
-- `arm64-darwin` (Apple Silicon)
+- `arm64-darwin` (Apple Silicon, macOS 15 or newer)
 
 Other platforms build from source and require PlutoBook development headers and libraries. See [Installing on other platforms](docs/production.md#installing-on-other-platforms).
 

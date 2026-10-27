@@ -180,7 +180,7 @@ jobs:
           bundle exec rake test
 
   build-plutobook-macos:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
@@ -198,9 +198,9 @@ jobs:
         id: plutobook-cache-macos
         with:
           path: tmp/plutobook-ci-install
-          key: plutobook-v0.20.0-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: plutobook-v0.20.0-macos-15-${{ runner.arch }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            plutobook-v0.20.0-${{ runner.os }}-
+            plutobook-v0.20.0-macos-15-${{ runner.arch }}-
 
       - name: Build PlutoBook
         if: steps.plutobook-cache-macos.outputs.cache-hit != 'true'
@@ -227,7 +227,7 @@ jobs:
 
   test-macos:
     needs: build-plutobook-macos
-    runs-on: macos-14
+    runs-on: macos-15
 
     env:
       PAGE_PRINT_PLUTOBOOK_PREFIX: ${{ github.workspace }}/tmp/plutobook-ci-install
