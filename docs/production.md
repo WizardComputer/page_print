@@ -23,8 +23,12 @@ PagePrint requires Ruby 3.2 or newer.
 | Platform | Installation |
 | --- | --- |
 | `x86_64-linux` | Native gem with vendored PlutoBook libraries; the Ruby extension is compiled against the local Ruby |
-| `arm64-darwin` | Native gem with vendored PlutoBook libraries; the Ruby extension is compiled against the local Ruby |
+| `arm64-darwin` (macOS 15 or newer) | Native gem with vendored PlutoBook libraries; the Ruby extension is compiled against the local Ruby |
 | Other platforms | Source build using an installed PlutoBook |
+
+Linux packages retain the Debian 11 (Bullseye) build baseline. Bullseye build dependencies now come from Debian's archive, which does not receive ongoing security updates.
+
+Apple Silicon packages are built and tested on macOS 15 because the macOS 14 runner and Homebrew dependency bottles are no longer supported. Older macOS versions require a source installation (`gem install page_print --platform ruby`) and a compatible system PlutoBook; they are not covered by CI. Setting a deployment target alone cannot make bundled Homebrew libraries compatible with older systems.
 
 The published native gems disable PlutoBook's optional curl, TurboJPEG, and WebP features to keep the bundled dependency set smaller. PagePrint uses its own Ruby resource fetcher boundary and does not expose PlutoBook's optional network fetcher.
 
